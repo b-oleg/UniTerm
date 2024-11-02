@@ -558,7 +558,7 @@ void MainWindow::about() {
                "<p>Использованы изображения из:"
                "<br><a href=\"https://fatcow.com/free-icons\"><span style=\"text-decoration:underline;color:#0000ff;\">'Iconpacks by Fatcow Web Hosting'</span></a>."
                "<br><a href=\"https://icons8.com\"><span style=\"text-decoration:underline;color:#0000ff;\">'Icons8'</span></a>.</p>"
-               "<p>Обновления:""<br><a href=\"https://github.com/b-oleg/UniTerm/releases\"><span style=\"text-decoration:underline;color:#0000ff;\">'https://github.com/b-oleg/UniTerm'</span></a></p>"
+               "<p>Обновления:<br><a href=\"https://github.com/b-oleg/UniTerm/releases\"><span style=\"text-decoration:underline;color:#0000ff;\">'https://github.com/b-oleg/UniTerm'</span></a></p>"
                "<p>Олег Большаков<br/><a href=\"mailto:obolshakov@mail.ru\"><span style=\"text-decoration:underline;color:#0000ff;\">obolshakov@mail.ru</span></a></p>"
                "</body></html>");
     mb.exec();
