@@ -5,6 +5,8 @@
 #include <QLineEdit>
 #include <QSerialPortInfo>
 
+#define DEFAULT_CB_BR38400_IDX 5 ///< Индекс по-умолчанию значения скорости для ComboBox. Соответсвует скорости 38400
+
 static const char blankString[] = QT_TR_NOOP("N/A");
 
 DialogSettings::DialogSettings(Settings &settings, QWidget *parent):
@@ -166,7 +168,7 @@ void DialogSettings::setSettings(Settings value) {
     }
 
     if (m_currentSettings.baudRate <= 0) {          // если не допустимый
-        m_ui->comboBoxBaudRate->setCurrentIndex(5); // установим 38400
+        m_ui->comboBoxBaudRate->setCurrentIndex(DEFAULT_CB_BR38400_IDX); // установим 38400
     } else {
         index = m_ui->comboBoxBaudRate->findData(m_currentSettings.baudRate);
         if ( index >= 0 ) {
