@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <QSerialPort>
+#include <QTcpSocket>
 #include <QSettings>
 #include "settings.h"
 #include "console.h"
@@ -28,31 +29,43 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
+
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    bool isOpen() const;
+
 private slots:
-    void open();
-    void saveAs();
-    void openSerialPort();
-    void closeSerialPort();
-    void about();
-    QByteArray convertData(const QByteArray &data);
-    void writeData(const QByteArray &data);
-    void readData();
-
-    void handleError(QSerialPort::SerialPortError error);
-    void handleBytesWritten(qint64 bytes);
-    void handleWriteTimeout();
-
+    void openFile();
+    void saveFileAs();
     void showSettings();
     void selectFont();
+    void about();
 
+    void writeData(const QByteArray &data);
     void consoleContextMenu(const QPoint &pos);
 
+    void open();
+    void openError(QString message);
+    void close();
+
+    void connected();
+    void disconnected();
+
+    void serialReadyRead();
+    void serialErrorOccurred(QSerialPort::SerialPortError error);
+
+    void socketStateUpdate(QAbstractSocket::SocketState state);
+    void socketErrorOccurred(QAbstractSocket::SocketError error);
+    void socketReadyRead();
+
+    void bytesWritten(qint64 bytes);
+    void writeTimeout();
+
 private:
-    void updateStatus();
+    void serialStateUpdate();
+    void updateStatus(QString &status);
     void showWriteError(const QString &message);
 
     void readSettings();
@@ -66,9 +79,10 @@ private:
 
     DialogSettings::Settings m_settings;
     qint64 m_bytesToWrite = 0;
-    QTimer *m_timer = nullptr;
+    QTimer *m_timerWrite = nullptr;
     QTimer *m_timerAddr = nullptr;
     QSerialPort *m_serial = nullptr;
+    QTcpSocket *m_socket = nullptr;
 
 
     typedef struct {
@@ -85,6 +99,7 @@ private:
     QVector<CommandControls> m_commandControls;
 
     QByteArray strToCmd(QString value);
+    QByteArray convertData(const QByteArray &data);
 
     int m_addr;
     QByteArray addrToCmd(QString value);

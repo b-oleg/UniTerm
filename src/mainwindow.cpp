@@ -17,12 +17,18 @@
 #include <QFontDialog>
 #include <QDataStream>
 
-#define COMMAND_COUNT   10
+#define DEFAULT_TIMEOUT_WRITE   5000
+#define DEFAULT_HOST            "localhost"
+#define DEFAULT_PORT            2000
 
-const char* defaultCommand[COMMAND_COUNT]  = { ":01G0\\0d", ":02G0\\0d", ":03G0\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
+#define COMMAND_COUNT   10
+const char* defaultCommand[COMMAND_COUNT]  = { "AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
 const char* defaultShortcutSend[COMMAND_COUNT]  = { "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+0" };
 const char* defaultShortcutLoop[COMMAND_COUNT]  = { "Shift+1", "Shift+2", "Shift+3", "Shift+4", "Shift+5", "Shift+6", "Shift+7", "Shift+8", "Shift+9", "Shift+0" };
 const char* defaultAddrFormat = ":\\#G0\\0d";
+
+const QString statusSeparator = QStringLiteral(" - ");
+
 
 MainWindow::MainWindow(QWidget *parent):
     QMainWindow(parent),
@@ -30,9 +36,10 @@ MainWindow::MainWindow(QWidget *parent):
     m_console(new Console(this)),
     m_find(new DialogFind(m_console, this)),
     m_labelStatus(new QLabel(this)),
-    m_timer(new QTimer(this)),
+    m_timerWrite(new QTimer(this)),
     m_timerAddr(new QTimer(this)),
-    m_serial(new QSerialPort(this))
+    m_serial(new QSerialPort(this)),
+    m_socket(new QTcpSocket(this))
 {
     m_ui->setupUi(this);
     setCentralWidget(m_console);
@@ -100,16 +107,15 @@ MainWindow::MainWindow(QWidget *parent):
     setToolStatusTip(m_ui->actionRts);
     setToolStatusTip(m_ui->actionAbout);
 
-    connect(m_ui->actionOpen, &QAction::triggered, this, &MainWindow::open);
-    connect(m_ui->actionSaveAs, &QAction::triggered, this, &MainWindow::saveAs);
+    connect(m_ui->actionOpen, &QAction::triggered, this, &MainWindow::openFile);
+    connect(m_ui->actionSaveAs, &QAction::triggered, this, &MainWindow::saveFileAs);
     connect(m_ui->actionQuit, &QAction::triggered, this, &MainWindow::close);
 
-    connect(m_ui->actionConnect, &QAction::triggered, this, &MainWindow::openSerialPort);
-    connect(m_ui->actionDisconnect, &QAction::triggered, this, &MainWindow::closeSerialPort);
+    connect(m_ui->actionConnect, &QAction::triggered, this, &MainWindow::open);
+    connect(m_ui->actionDisconnect, &QAction::triggered, this, &MainWindow::close);
     connect(m_ui->actionSettings, &QAction::triggered, this, &MainWindow::showSettings);
 
     connect(m_ui->actionAbout, &QAction::triggered, this, &MainWindow::about);
-    //connect(m_ui->actionAboutQt, &QAction::triggered, qApp, &QApplication::aboutQt);
 
     connect(m_ui->actionClear, &QAction::triggered, m_console, &Console::clear);
     connect(m_ui->actionSelectFont, &QAction::triggered, this, &MainWindow::selectFont);
@@ -132,7 +138,7 @@ MainWindow::MainWindow(QWidget *parent):
         m_ui->actionPaste->setEnabled(QApplication::clipboard()->mimeData()->hasText());
     });
     connect(m_ui->actionPaste, &QAction::triggered, this, [=]() {
-        if (m_serial->isOpen()) {
+        if (isOpen()) {
             writeData(QApplication::clipboard()->mimeData()->text().toLocal8Bit());
         } else {
             showSettings();
@@ -140,14 +146,13 @@ MainWindow::MainWindow(QWidget *parent):
         }
     });
 
-    // serial
-    connect(m_serial, &QSerialPort::errorOccurred, this, &MainWindow::handleError);
-    connect(m_timer, &QTimer::timeout, this, &MainWindow::handleWriteTimeout);
-    m_timer->setSingleShot(true);
-
-    connect(m_serial, &QSerialPort::readyRead, this, &MainWindow::readData);
-    connect(m_serial, &QSerialPort::bytesWritten, this, &MainWindow::handleBytesWritten);
+    // console
     connect(m_console, &Console::getData, this, &MainWindow::writeData);
+
+    // serial
+    connect(m_serial, &QSerialPort::errorOccurred, this, &MainWindow::serialErrorOccurred);
+    connect(m_serial, &QSerialPort::readyRead, this, &MainWindow::serialReadyRead);
+    connect(m_serial, &QSerialPort::bytesWritten, this, &MainWindow::bytesWritten);
 
     connect(m_serial, &QSerialPort::dataTerminalReadyChanged, m_ui->actionDtr, &QAction::setChecked);
     connect(m_ui->actionDtr, &QAction::toggled, m_serial, &QSerialPort::setDataTerminalReady);
@@ -156,6 +161,18 @@ MainWindow::MainWindow(QWidget *parent):
     connect(m_ui->actionSendBreak, &QAction::triggered, this, [=](){
         if (m_serial->isOpen()) writeData(QByteArray(1,0));
     });
+
+    // socket
+    connect(m_socket, &QTcpSocket::connected, this, &MainWindow::connected);
+    connect(m_socket, &QTcpSocket::disconnected, this, &MainWindow::disconnected);
+    connect(m_socket, &QTcpSocket::stateChanged, this, &MainWindow::socketStateUpdate);
+    connect(m_socket, &QTcpSocket::errorOccurred, this, &MainWindow::socketErrorOccurred);
+    connect(m_socket, &QTcpSocket::readyRead, this, &MainWindow::socketReadyRead);
+    connect(m_socket, &QTcpSocket::bytesWritten, this, &MainWindow::bytesWritten);
+
+    // write timer
+    connect(m_timerWrite, &QTimer::timeout, this, &MainWindow::writeTimeout);
+    m_timerWrite->setSingleShot(true);
 
     // dock commands
     m_ui->labelNum->setToolTip(tr("Номер команды"));
@@ -297,9 +314,17 @@ MainWindow::MainWindow(QWidget *parent):
     connect(m_console, &Console::customContextMenuRequested, this, &MainWindow::consoleContextMenu);
     m_console->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    //
+    // settings
     readSettings();
-    updateStatus();
+
+    // status
+    switch (m_settings.type) {
+    case DialogSettings::Tcp:
+        socketStateUpdate(m_socket->state());
+        break;
+    default:
+        serialStateUpdate();
+    }
 }
 
 MainWindow::~MainWindow() {
@@ -463,7 +488,7 @@ void MainWindow::addrStart(bool value) {
     }
 }
 
-void MainWindow::open() {
+void MainWindow::openFile() {
     QFileDialog dialog(this, tr("Открыть"), ".", tr("Текстовый документ (*.txt)"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     if (dialog.exec() == QDialog::Accepted) {
@@ -477,7 +502,7 @@ void MainWindow::open() {
     }
 }
 
-void MainWindow::saveAs() {
+void MainWindow::saveFileAs() {
     QFileDialog dialog(this, tr("Сохранить как..."), ".", tr("Текстовый документ (*.txt)"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.selectFile(QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss"));
@@ -492,44 +517,96 @@ void MainWindow::saveAs() {
     }
 }
 
-void MainWindow::openSerialPort() {
-    m_serial->setPortName(m_settings.name);
-    m_serial->setBaudRate(m_settings.baudRate);
-    m_serial->setDataBits(m_settings.dataBits);
-    m_serial->setParity(m_settings.parity);
-    m_serial->setStopBits(m_settings.stopBits);
-    m_serial->setFlowControl(m_settings.flowControl);
-    if (m_serial->open(QIODevice::ReadWrite)) {
+void MainWindow::open() {
+    switch (m_settings.type) {
+
+    case DialogSettings::Tcp:
+        m_socket->connectToHost(m_settings.host, m_settings.port);
+        m_ui->actionConnect->setEnabled(false);
+        m_ui->actionSettings->setEnabled(false);
+        break;
+
+    default: // DialogSettings::Serial
+        m_serial->setPortName(m_settings.name);
+        m_serial->setBaudRate(m_settings.baudRate);
+        m_serial->setDataBits(m_settings.dataBits);
+        m_serial->setParity(m_settings.parity);
+        m_serial->setStopBits(m_settings.stopBits);
+        m_serial->setFlowControl(m_settings.flowControl);
+        if (m_serial->open(QIODevice::ReadWrite)) {
+            connected();
+        } else {
+            openError(QString(tr("Ошибка открытия порта '%1': %2")).
+                      arg(m_serial->portName()).arg(m_serial->errorString()));
+        }
+    }
+}
+
+void MainWindow::openError(QString message) {
+    m_ui->statusBar->showMessage(message);
+    QMessageBox::critical(this, QString(tr("Подключение")), message);
+}
+
+void MainWindow::close() {
+    switch (m_settings.type) {
+    case DialogSettings::Tcp:
+        if (m_socket->isOpen()) m_socket->close();
+        break;
+    default: // DialogSettings::Serial
+        if (m_serial->isOpen()) m_serial->close();
+        disconnected();
+    }
+}
+
+void MainWindow::connected() {
+    m_ui->actionConnect->setEnabled(false);
+    m_ui->actionDisconnect->setEnabled(true);
+    m_ui->actionSettings->setEnabled(true);
+    switch (m_settings.type) {
+
+    case DialogSettings::Tcp:
+        m_ui->actionDtr->setEnabled(false);
+        m_ui->actionRts->setEnabled(false);
+        // m_ui->actionDtr->setVisible(false);
+        // m_ui->actionRts->setVisible(false);
+        break;
+
+    default: // DialogSettings::Serial
         m_serial->setDataTerminalReady(m_settings.dtr);
         m_ui->actionDtr->setChecked(m_settings.dtr);
         m_serial->setRequestToSend(m_settings.rts);
         m_ui->actionRts->setChecked(m_settings.rts);
-        //m_console->setEnabled(true);
-        m_ui->actionConnect->setEnabled(false);
-        m_ui->actionDisconnect->setEnabled(true);
         m_ui->actionDtr->setEnabled(true);
         m_ui->actionRts->setEnabled(true);
-        m_ui->actionSendBreak->setEnabled(true);
-        //showStatusMessage(tr("Подключен %1: %2, %3, %4, %5, %6").arg(m_settings.name, m_settings.stringBaudRate, m_settings.stringDataBits, m_settings.stringParity, m_settings.stringStopBits, m_settings.stringFlowControl));
-        for (int i = 0; i < COMMAND_COUNT; ++i) {
-            m_commandControls[i].actionButtonSend->setEnabled(true);
-            m_commandControls[i].actionButtonSendInterval->setEnabled(true);
-            m_commandControls[i].actionSend->setEnabled(true);
-            m_commandControls[i].actionSendInterval->setEnabled(true);
-        }
-    } else {
-        QMessageBox::critical(this, tr("Ошибка открытия порта!"), m_serial->errorString());
+        //m_ui->actionDtr->setVisible(true);
+        //m_ui->actionRts->setVisible(true);
+        serialStateUpdate();
     }
-    updateStatus();
+    m_ui->actionSendBreak->setEnabled(true);
+    for (int i = 0; i < COMMAND_COUNT; ++i) {
+        m_commandControls[i].actionButtonSend->setEnabled(true);
+        m_commandControls[i].actionButtonSendInterval->setEnabled(true);
+        m_commandControls[i].actionSend->setEnabled(true);
+        m_commandControls[i].actionSendInterval->setEnabled(true);
+    }
 }
 
-void MainWindow::closeSerialPort() {
-    if (m_serial->isOpen()) m_serial->close();
-    //m_console->setEnabled(false);
+void MainWindow::disconnected() {
     m_ui->actionConnect->setEnabled(true);
     m_ui->actionDisconnect->setEnabled(false);
+    m_ui->actionSettings->setEnabled(true);
+    switch (m_settings.type) {
+    case DialogSettings::Tcp:
+        m_ui->statusBar->showMessage(tr("TCP-сокет отключен"));
+        break;
+    default: // DialogSettings::Serial
+        m_ui->statusBar->showMessage(tr("Порт отключен"));
+        serialStateUpdate();
+    }
     m_ui->actionDtr->setEnabled(false);
     m_ui->actionRts->setEnabled(false);
+    //m_ui->actionDtr->setVisible(false);
+    //m_ui->actionRts->setVisible(false);
     m_ui->actionSendBreak->setEnabled(false);
     for (int i = 0; i < COMMAND_COUNT; ++i) {
         m_commandControls[i].actionSend->setEnabled(false);
@@ -538,8 +615,8 @@ void MainWindow::closeSerialPort() {
         m_commandControls[i].actionButtonSend->setEnabled(false);
         m_commandControls[i].actionButtonSendInterval->setEnabled(false);
     }
-    updateStatus();
 }
+
 
 void MainWindow::about() {
     QMessageBox mb;
@@ -553,8 +630,8 @@ void MainWindow::about() {
                "<span style=\"font-weight:bold;\">" +
                QCoreApplication::applicationName() + " v" + QCoreApplication::applicationVersion() +
                "</span>"
-               "<p>Программа предназначена для работы с COM-портом.</p>"
-               "<p>Основана на кроссплатформенной библиотеке разработки <a href=\"https://www.qt.io\"><span style=\"text-decoration:underline;color:#0000ff;\">'Qt'</span></a>.</p>"
+               "<p>Программа предназначена для взаимодействия<br>с последовательным портом или TCP-сокетом.</p>"
+               "<p>Основана на фреймворке для разработки<br>кроссплатформенного программного<br>обеспечения:<a href=\"https://www.qt.io\"><span style=\"text-decoration:underline;color:#0000ff;\">'Qt'</span></a>.</p>"
                "<p>Использованы изображения из:"
                "<br><a href=\"https://fatcow.com/free-icons\"><span style=\"text-decoration:underline;color:#0000ff;\">'Iconpacks by Fatcow Web Hosting'</span></a>."
                "<br><a href=\"https://icons8.com\"><span style=\"text-decoration:underline;color:#0000ff;\">'Icons8'</span></a>.</p>"
@@ -590,53 +667,58 @@ QByteArray MainWindow::convertData(const QByteArray &data) {
 }
 
 void MainWindow::writeData(const QByteArray &data) {
-    if (!m_serial->isOpen()) {
+    if (!isOpen()) {
         showSettings();
         return;
     }
-    const qint64 written = m_serial->write(data);
-    qDebug()<<"serial->write"<<data.size() << written;
-    if (written == data.size()) {
-        if (m_settings.localEcho) m_console->putData(convertData(data));
-        m_bytesToWrite += written;
-        m_timer->start(5000);
-    } else {
-        const QString error = tr("Ошибка записи в порт '%1'!\nError: '%2'").arg(m_serial->portName(), m_serial->errorString());
-        showWriteError(error);
+    qint64 written;
+    switch (m_settings.type) {
+    case DialogSettings::Tcp:
+        written = m_socket->write(data);
+        if (written != data.size()) {
+            const QString error = tr("Ошибка записи в '%1:%2'!\nError: '%2'").arg(m_settings.host).arg(m_settings.port).arg(m_serial->errorString());
+            showWriteError(error);
+            return;
+        }
+        break;
+    default: // DialogSettings::Serial
+        written = m_serial->write(data);
+        if (written != data.size()) {
+            const QString error = tr("Ошибка записи в порт '%1'!\nError: '%2'").arg(m_serial->portName(), m_serial->errorString());
+            showWriteError(error);
+            return;
+        }
     }
+    if (m_settings.localEcho) m_console->putData(convertData(data));
+    m_bytesToWrite += written;
+    m_timerWrite->start(m_settings.timeoutWrite);
 }
 
-void MainWindow::readData() {
+void MainWindow::serialReadyRead() {
     const QByteArray data = m_serial->readAll();
     m_console->putData(convertData(data));
 }
 
-void MainWindow::handleError(QSerialPort::SerialPortError error) {
+void MainWindow::serialErrorOccurred(QSerialPort::SerialPortError error) {
     if (error == QSerialPort::ResourceError) {
         QMessageBox::critical(this, tr("Критическая ошибка"), m_serial->errorString());
-        closeSerialPort();
+        close();
     }
 }
 
-void MainWindow::handleBytesWritten(qint64 bytes) {
-    qDebug()<<"handleBytesWritten"<<bytes;
-    m_bytesToWrite -= bytes;
-    if (m_bytesToWrite == 0) m_timer->stop();
-}
-
-void MainWindow::handleWriteTimeout() {
+void MainWindow::writeTimeout() {
     const QString error = tr("Таймаут записи в порт '%1'.\nОшибка: %2").arg(m_serial->portName(), m_serial->errorString());
     showWriteError(error);
 }
 
 void MainWindow::showSettings() {
-    if (m_serial->isOpen()) closeSerialPort();
+    if (m_serial->isOpen()) close();
     m_settings.dtr = m_ui->actionDtr->isChecked();
     m_settings.rts = m_ui->actionRts->isChecked();
     DialogSettings ds(m_settings, this);
     if (ds.exec() == QDialog::Accepted) {
         m_settings = ds.settings();
-        openSerialPort();
+        open();
     }
 }
 
@@ -659,12 +741,65 @@ void MainWindow::consoleContextMenu(const QPoint &pos) {
     menu.exec(m_console->mapToGlobal(pos));
 }
 
-void MainWindow::updateStatus() {
-    const QString separator = QStringLiteral(" - ");
+void MainWindow::socketStateUpdate(QAbstractSocket::SocketState state) {
+    QString status = QString("%1:%2").arg(m_settings.host).arg(m_settings.port);
+    switch (state) {
+    case QAbstractSocket::UnconnectedState: // The socket is not connected.
+        status.append(statusSeparator).append(tr("Отключен"));
+        break;
+    case QAbstractSocket::HostLookupState:  // The socket is performing a host name lookup.
+        status.append(statusSeparator).append(tr("Поиск адреса"));
+        break;
+    case QAbstractSocket::ConnectingState:  // The socket has started establishing a connection.
+        status.append(statusSeparator).append(tr("Подключение"));
+        break;
+    case QAbstractSocket::ConnectedState:   // A connection is established.
+    case QAbstractSocket::ListeningState:   // For internal use only.
+        status.append(statusSeparator).append(tr("Подключен"));
+        break;
+    case QAbstractSocket::BoundState:       // The socket is bound to an address and port.
+        status.append(statusSeparator).append(tr("Привязан к адресу"));
+        break;
+    case QAbstractSocket::ClosingState:     // The socket is about to close (data may still be waiting to be written).
+        status.append(statusSeparator).append(tr("Отключен"));
+        break;
+    }
+    updateStatus(status);
+}
+
+void MainWindow::socketErrorOccurred(QAbstractSocket::SocketError error) {
+    switch (error) {
+    case QAbstractSocket::RemoteHostClosedError:
+        QMessageBox::warning(this, tr("TCP-сокет"), tr("TCP-сервер закрыл соединение."));
+        break;
+    case QAbstractSocket::HostNotFoundError:
+        openError(tr("Адрес не найден. Проверьте настройки TCP-сокета."));
+        break;
+    case QAbstractSocket::ConnectionRefusedError:
+        openError(tr("Соединение отклонено. Проверьте настройки TCP-сокета."));
+        break;
+    default:
+        QMessageBox::warning(this, tr("TCP-сокет"), tr("Произошла ошибка: %1.").arg(m_socket->errorString()));
+    }
+    disconnected();
+}
+
+void MainWindow::socketReadyRead() {
+    const QByteArray data = m_socket->readAll();
+    m_console->putData(convertData(data));
+}
+
+void MainWindow::bytesWritten(qint64 bytes) {
+    qDebug()<<"bytesWritten"<<bytes;
+    m_bytesToWrite -= bytes;
+    if (m_bytesToWrite == 0) m_timerWrite->stop();
+}
+
+void MainWindow::serialStateUpdate() {
     QString status = m_settings.name;
     if (m_serial->isOpen()) {
-        status.append(separator).append(QString::number(m_serial->baudRate()));
-        status.append(separator).append(QString::number(m_serial->dataBits()));
+        status.append(statusSeparator).append(QString::number(m_serial->baudRate()));
+        status.append(statusSeparator).append(QString::number(m_serial->dataBits()));
         switch (m_serial->parity()) {
         case QSerialPort::NoParity: status.append('N');break;
         case QSerialPort::EvenParity: status.append('E');break;
@@ -683,8 +818,12 @@ void MainWindow::updateStatus() {
         case QSerialPort::SoftwareControl: status.append('S');break;
         }
     } else {
-        status.append(separator).append(tr("Закрыт"));
+        status.append(statusSeparator).append(tr("Закрыт"));
     }
+    updateStatus(status);
+}
+
+void MainWindow::updateStatus(QString &status) {
     m_labelStatus->setText(status);
     setWindowTitle(QString("%1 - %2 v%3").arg(status, QCoreApplication::applicationName(), QCoreApplication::applicationVersion()));
 }
@@ -726,7 +865,9 @@ void MainWindow::readSettings() {
     settings.endGroup();
 
     settings.beginGroup("Settings");
-    m_settings.name = settings.value("Port", "").toString();
+    m_settings.type = static_cast<DialogSettings::ConnectionType>(settings.value("Type", DialogSettings::Serial).toInt());
+    m_settings.timeoutWrite = settings.value("TimeoutWrite", DEFAULT_TIMEOUT_WRITE).toInt();
+    m_settings.name = settings.value("Name", "").toString();
     m_settings.baudRate = settings.value("Baud", QSerialPort::Baud38400).toInt();
     m_settings.dataBits = static_cast<QSerialPort::DataBits>(settings.value("DataBits", QSerialPort::Data8).toInt());
     m_settings.parity = static_cast<QSerialPort::Parity>(settings.value("Parity", QSerialPort::NoParity).toInt());
@@ -734,13 +875,15 @@ void MainWindow::readSettings() {
     m_settings.flowControl = static_cast<QSerialPort::FlowControl>(settings.value("FlowControl", QSerialPort::NoFlowControl).toInt());
     m_settings.dtr = settings.value("DTR", false).toBool();
     m_settings.rts = settings.value("RTS", false).toBool();
+    m_settings.host = settings.value("Host", DEFAULT_HOST).toString();
+    m_settings.port = settings.value("Port", DEFAULT_PORT).toUInt();
     m_settings.hexLog = settings.value("HexLog", false).toBool();
     m_settings.hexAll = settings.value("HexAll", false).toBool();
     m_settings.localEcho = settings.value("LocalEcho", true).toBool();
     m_settings.timeStamp = settings.value("TimeStamp", false).toBool();
     settings.endGroup();
 
-    if (settings.value("Connected", false).toBool()) openSerialPort();
+    if (settings.value("Connected", false).toBool()) open();
 }
 
 void MainWindow::writeSettings() {
@@ -774,7 +917,9 @@ void MainWindow::writeSettings() {
     settings.endGroup();
 
     settings.beginGroup("Settings");
-    settings.setValue("Port", m_settings.name);
+    settings.setValue("Type", m_settings.type);
+    settings.setValue("TimeoutWrite", m_settings.timeoutWrite);
+    settings.setValue("Name", m_settings.name);
     settings.setValue("Baud", m_settings.baudRate);
     settings.setValue("DataBits", m_settings.dataBits);
     settings.setValue("Parity", m_settings.parity);
@@ -782,11 +927,20 @@ void MainWindow::writeSettings() {
     settings.setValue("FlowControl", m_settings.flowControl);
     settings.setValue("DTR", m_settings.dtr);
     settings.setValue("RTS", m_settings.rts);
+    settings.setValue("Host", m_settings.host);
+    settings.setValue("Port", m_settings.port);
     settings.setValue("HexLog", m_settings.hexLog);
     settings.setValue("HexAll", m_settings.hexAll);
     settings.setValue("LocalEcho", m_settings.localEcho);
     settings.setValue("TimeStamp", m_settings.timeStamp);
     settings.endGroup();
 
-    settings.setValue("Connected", m_serial->isOpen());
+    settings.setValue("Connected", isOpen());
+}
+
+bool MainWindow::isOpen() const {
+    switch (m_settings.type) {
+    case DialogSettings::Tcp: return m_socket->isOpen(); break;
+    default: return m_serial->isOpen();
+    }
 }

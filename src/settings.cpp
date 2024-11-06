@@ -22,7 +22,9 @@ DialogSettings::DialogSettings(Settings &settings, QWidget *parent):
     connect(m_ui->comboBoxPort, &QComboBox::activated, this, &DialogSettings::checkCustomDevicePathPolicy);
     connect(m_ui->comboBoxBaudRate,  &QComboBox::activated, this, &DialogSettings::checkCustomBaudRatePolicy);
 
-    fillPortsParameters();
+    connect(m_ui->comboBoxType,  &QComboBox::currentIndexChanged, this, &DialogSettings::setType);
+
+    fillParameters();
     fillPortsInfo();
     setSettings(settings);
 }
@@ -37,9 +39,7 @@ DialogSettings::Settings DialogSettings::settings() const {
 
 void DialogSettings::showPortInfo(int idx) {
     if (idx < 0) return;
-
     const QString blankString = tr(::blankString);
-
     const QStringList list = m_ui->comboBoxPort->itemData(idx).toStringList();
 
     m_ui->lineEditDescription->setText(list.value(1, blankString));
@@ -71,7 +71,8 @@ void DialogSettings::checkCustomBaudRatePolicy(int idx) {
 }
 
 void DialogSettings::setDefault() {
-    //m_currentSettings.name;
+    m_currentSettings.type = ConnectionType::Serial;
+    //m_currentSettings.name = m_currentSettings.name;
     m_currentSettings.baudRate = QSerialPort::Baud38400;
     m_currentSettings.dataBits = QSerialPort::Data8;
     m_currentSettings.parity = QSerialPort::NoParity;
@@ -84,6 +85,19 @@ void DialogSettings::setDefault() {
     m_currentSettings.hexLog = false;
     m_currentSettings.hexAll = false;
     setSettings(m_currentSettings);
+}
+
+void DialogSettings::setType(int idx) {
+    bool enable = (idx == 0);
+    m_ui->comboBoxPort->setEnabled(enable);
+    m_ui->comboBoxBaudRate->setEnabled(enable);
+    m_ui->comboBoxDataBits->setEnabled(enable);
+    m_ui->comboBoxParity->setEnabled(enable);
+    m_ui->comboBoxStopBits->setEnabled(enable);
+    m_ui->comboBoxFlowControl->setEnabled(enable);
+
+    m_ui->lineEditTcpHost->setEnabled(!enable);
+    m_ui->spinBoxTcpPort->setEnabled(!enable);
 }
 
 void DialogSettings::fillPortsInfo() {
@@ -114,7 +128,12 @@ void DialogSettings::fillPortsInfo() {
     m_ui->comboBoxPort->addItem(tr("Другой"));
 }
 
-void DialogSettings::fillPortsParameters() {
+void DialogSettings::fillParameters() {
+    // type
+    m_ui->comboBoxType->addItem(tr("Последовательный порт"), ConnectionType::Serial);
+    m_ui->comboBoxType->addItem(tr("TCP-сокет"), ConnectionType::Tcp);
+
+    // serial
     m_ui->comboBoxBaudRate->addItem(QString::number(QSerialPort::Baud1200), QSerialPort::Baud1200);
     m_ui->comboBoxBaudRate->addItem(QString::number(QSerialPort::Baud2400), QSerialPort::Baud2400);
     m_ui->comboBoxBaudRate->addItem(QString::number(QSerialPort::Baud4800), QSerialPort::Baud4800);
@@ -149,6 +168,13 @@ void DialogSettings::fillPortsParameters() {
 void DialogSettings::setSettings(Settings value) {
     m_currentSettings = value;
 
+    // type
+    switch (m_currentSettings.type) {
+    case ConnectionType::Tcp: m_ui->comboBoxType->setCurrentIndex(1); break;
+    default: m_ui->comboBoxType->setCurrentIndex(0); break;
+    }
+
+    //serial
     int index;
     if (m_currentSettings.name.isEmpty()) {
         m_ui->comboBoxPort->setCurrentIndex(m_ui->comboBoxPort->count() - 1);
@@ -207,6 +233,12 @@ void DialogSettings::setSettings(Settings value) {
 
     m_ui->checkBoxDtr->setChecked(m_currentSettings.dtr);
     m_ui->checkBoxRts->setChecked(m_currentSettings.rts);
+
+    //tcp
+    m_ui->lineEditTcpHost->setText(m_currentSettings.host);
+    m_ui->spinBoxTcpPort->setValue(m_currentSettings.port);
+
+    // terminal
     m_ui->checkBoxLocalEcho->setChecked(m_currentSettings.localEcho);
     m_ui->checkBoxTimeStamp->setChecked(m_currentSettings.timeStamp);
     m_ui->groupBoxHexLog->setChecked(m_currentSettings.hexLog);
@@ -218,6 +250,11 @@ void DialogSettings::setSettings(Settings value) {
 }
 
 void DialogSettings::updateSettings() {
+    // type
+    const auto type = m_ui->comboBoxType->currentData();
+    m_currentSettings.type = type.value<ConnectionType>();
+
+    // serial
     m_currentSettings.name = m_ui->comboBoxPort->currentText();
 
     if (m_ui->comboBoxBaudRate->currentIndex() == (m_ui->comboBoxBaudRate->count()-1)) {
@@ -241,6 +278,12 @@ void DialogSettings::updateSettings() {
 
     m_currentSettings.dtr = m_ui->checkBoxDtr->isChecked();
     m_currentSettings.rts = m_ui->checkBoxRts->isChecked();
+
+    // tcp
+    m_currentSettings.host = m_ui->lineEditTcpHost->text();
+    m_currentSettings.port = m_ui->spinBoxTcpPort->value();
+
+    // terminal
     m_currentSettings.localEcho = m_ui->checkBoxLocalEcho->isChecked();
     m_currentSettings.timeStamp = m_ui->checkBoxTimeStamp->isChecked();
     m_currentSettings.hexLog = m_ui->groupBoxHexLog->isChecked();
