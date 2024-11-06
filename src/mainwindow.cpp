@@ -39,7 +39,8 @@ MainWindow::MainWindow(QWidget *parent):
     m_timerWrite(new QTimer(this)),
     m_timerAddr(new QTimer(this)),
     m_serial(new QSerialPort(this)),
-    m_socket(new QTcpSocket(this))
+    m_tcp(new QTcpSocket(this)),
+    m_udp(new QUdpSocket(this))
 {
     m_ui->setupUi(this);
     setCentralWidget(m_console);
@@ -162,13 +163,21 @@ MainWindow::MainWindow(QWidget *parent):
         if (m_serial->isOpen()) writeData(QByteArray(1,0));
     });
 
-    // socket
-    connect(m_socket, &QTcpSocket::connected, this, &MainWindow::connected);
-    connect(m_socket, &QTcpSocket::disconnected, this, &MainWindow::disconnected);
-    connect(m_socket, &QTcpSocket::stateChanged, this, &MainWindow::socketStateUpdate);
-    connect(m_socket, &QTcpSocket::errorOccurred, this, &MainWindow::socketErrorOccurred);
-    connect(m_socket, &QTcpSocket::readyRead, this, &MainWindow::socketReadyRead);
-    connect(m_socket, &QTcpSocket::bytesWritten, this, &MainWindow::bytesWritten);
+    // tcp
+    connect(m_tcp, &QTcpSocket::connected, this, &MainWindow::connected);
+    connect(m_tcp, &QTcpSocket::disconnected, this, &MainWindow::disconnected);
+    connect(m_tcp, &QTcpSocket::stateChanged, this, &MainWindow::socketStateUpdate);
+    connect(m_tcp, &QTcpSocket::errorOccurred, this, &MainWindow::socketErrorOccurred);
+    connect(m_tcp, &QTcpSocket::readyRead, this, &MainWindow::socketReadyRead);
+    connect(m_tcp, &QTcpSocket::bytesWritten, this, &MainWindow::bytesWritten);
+
+    // udp
+    connect(m_udp, &QUdpSocket::connected, this, &MainWindow::connected);
+    connect(m_udp, &QUdpSocket::disconnected, this, &MainWindow::disconnected);
+    connect(m_udp, &QUdpSocket::stateChanged, this, &MainWindow::socketStateUpdate);
+    //connect(m_udp, &QUdpSocket::errorOccurred, this, &MainWindow::socketErrorOccurred);
+    connect(m_udp, &QUdpSocket::readyRead, this, &MainWindow::udpReadyRead);
+    connect(m_udp, &QUdpSocket::bytesWritten, this, &MainWindow::bytesWritten);
 
     // write timer
     connect(m_timerWrite, &QTimer::timeout, this, &MainWindow::writeTimeout);
@@ -319,9 +328,9 @@ MainWindow::MainWindow(QWidget *parent):
 
     // status
     switch (m_settings.type) {
-    case DialogSettings::Tcp:
-        socketStateUpdate(m_socket->state());
-        break;
+    case DialogSettings::Tcp: socketStateUpdate(m_tcp->state()); break;
+    case DialogSettings::UdpUnicast:
+    case DialogSettings::UdpBroadcast: socketStateUpdate(m_udp->state()); break;
     default:
         serialStateUpdate();
     }
@@ -521,9 +530,17 @@ void MainWindow::open() {
     switch (m_settings.type) {
 
     case DialogSettings::Tcp:
-        m_socket->connectToHost(m_settings.host, m_settings.port);
+        m_tcp->connectToHost(m_settings.host, m_settings.port);
         m_ui->actionConnect->setEnabled(false);
         m_ui->actionSettings->setEnabled(false);
+        break;
+
+    case DialogSettings::UdpUnicast:
+    case DialogSettings::UdpBroadcast:
+        qDebug()<<"udp open"<<m_udp->state();
+        m_udp->bind(m_settings.port, QUdpSocket::ShareAddress);
+        qDebug()<<"bind"<<m_udp->state();
+        connected();
         break;
 
     default: // DialogSettings::Serial
@@ -549,8 +566,15 @@ void MainWindow::openError(QString message) {
 
 void MainWindow::close() {
     switch (m_settings.type) {
-    case DialogSettings::Tcp:
-        if (m_socket->isOpen()) m_socket->close();
+    case DialogSettings::Tcp: if (m_tcp->isOpen()) m_tcp->close(); break;
+    case DialogSettings::UdpUnicast:
+    case DialogSettings::UdpBroadcast:
+        qDebug()<<"close"<<m_udp->state();
+        if (m_udp->state() == QAbstractSocket::BoundState) {
+            m_udp->close();//abort
+        }
+        qDebug()<<"after"<<m_udp->state();
+        disconnected();
         break;
     default: // DialogSettings::Serial
         if (m_serial->isOpen()) m_serial->close();
@@ -565,10 +589,10 @@ void MainWindow::connected() {
     switch (m_settings.type) {
 
     case DialogSettings::Tcp:
+    case DialogSettings::UdpUnicast:
+    case DialogSettings::UdpBroadcast:
         m_ui->actionDtr->setEnabled(false);
         m_ui->actionRts->setEnabled(false);
-        // m_ui->actionDtr->setVisible(false);
-        // m_ui->actionRts->setVisible(false);
         break;
 
     default: // DialogSettings::Serial
@@ -596,17 +620,15 @@ void MainWindow::disconnected() {
     m_ui->actionDisconnect->setEnabled(false);
     m_ui->actionSettings->setEnabled(true);
     switch (m_settings.type) {
-    case DialogSettings::Tcp:
-        m_ui->statusBar->showMessage(tr("TCP-сокет отключен"));
-        break;
+    case DialogSettings::Tcp: m_ui->statusBar->showMessage(tr("TCP-сокет отключен")); break;
+    case DialogSettings::UdpUnicast: m_ui->statusBar->showMessage(tr("UDP Unicast отключен")); break;
+    case DialogSettings::UdpBroadcast: m_ui->statusBar->showMessage(tr("UDP Broadcast отключен")); break;
     default: // DialogSettings::Serial
-        m_ui->statusBar->showMessage(tr("Порт отключен"));
+        m_ui->statusBar->showMessage(tr("Последовательный порт отключен"));
         serialStateUpdate();
     }
     m_ui->actionDtr->setEnabled(false);
     m_ui->actionRts->setEnabled(false);
-    //m_ui->actionDtr->setVisible(false);
-    //m_ui->actionRts->setVisible(false);
     m_ui->actionSendBreak->setEnabled(false);
     for (int i = 0; i < COMMAND_COUNT; ++i) {
         m_commandControls[i].actionSend->setEnabled(false);
@@ -630,7 +652,7 @@ void MainWindow::about() {
                "<span style=\"font-weight:bold;\">" +
                QCoreApplication::applicationName() + " v" + QCoreApplication::applicationVersion() +
                "</span>"
-               "<p>Программа предназначена для взаимодействия<br>с последовательным портом или TCP-сокетом.</p>"
+               "<p>Программа предназначена для взаимодействия<br>с последовательным портом, UDP, TCP-сокетом.</p>"
                "<p>Основана на фреймворке для разработки<br>кроссплатформенного программного<br>обеспечения:<a href=\"https://www.qt.io\"><span style=\"text-decoration:underline;color:#0000ff;\">'Qt'</span></a>.</p>"
                "<p>Использованы изображения из:"
                "<br><a href=\"https://fatcow.com/free-icons\"><span style=\"text-decoration:underline;color:#0000ff;\">'Iconpacks by Fatcow Web Hosting'</span></a>."
@@ -674,9 +696,25 @@ void MainWindow::writeData(const QByteArray &data) {
     qint64 written;
     switch (m_settings.type) {
     case DialogSettings::Tcp:
-        written = m_socket->write(data);
+        written = m_tcp->write(data);
         if (written != data.size()) {
-            const QString error = tr("Ошибка записи в '%1:%2'!\nError: '%2'").arg(m_settings.host).arg(m_settings.port).arg(m_serial->errorString());
+            const QString error = tr("Ошибка записи в 'TCP:%1:%2'!\nError: '%3'").arg(m_settings.host).arg(m_settings.port).arg(m_serial->errorString());
+            showWriteError(error);
+            return;
+        }
+        break;
+    case DialogSettings::UdpUnicast:
+        written = m_udp->writeDatagram(data, QHostAddress(m_settings.host), m_settings.port);
+        if (written != data.size()) {
+            const QString error = tr("Ошибка записи в 'UDP:%1:%2'!\nError: '%3'").arg(m_settings.host).arg(m_settings.port).arg(m_serial->errorString());
+            showWriteError(error);
+            return;
+        }
+        break;
+    case DialogSettings::UdpBroadcast:
+        written = m_udp->writeDatagram(data, QHostAddress::Broadcast, m_settings.port);
+        if (written != data.size()) {
+            const QString error = tr("Ошибка записи в 'UDP:%1'!\nError: '%2'").arg(m_settings.port).arg(m_serial->errorString());
             showWriteError(error);
             return;
         }
@@ -688,10 +726,10 @@ void MainWindow::writeData(const QByteArray &data) {
             showWriteError(error);
             return;
         }
+        m_bytesToWrite += written;
+        m_timerWrite->start(m_settings.timeoutWrite);
     }
     if (m_settings.localEcho) m_console->putData(convertData(data));
-    m_bytesToWrite += written;
-    m_timerWrite->start(m_settings.timeoutWrite);
 }
 
 void MainWindow::serialReadyRead() {
@@ -704,11 +742,6 @@ void MainWindow::serialErrorOccurred(QSerialPort::SerialPortError error) {
         QMessageBox::critical(this, tr("Критическая ошибка"), m_serial->errorString());
         close();
     }
-}
-
-void MainWindow::writeTimeout() {
-    const QString error = tr("Таймаут записи в порт '%1'.\nОшибка: %2").arg(m_serial->portName(), m_serial->errorString());
-    showWriteError(error);
 }
 
 void MainWindow::showSettings() {
@@ -742,7 +775,21 @@ void MainWindow::consoleContextMenu(const QPoint &pos) {
 }
 
 void MainWindow::socketStateUpdate(QAbstractSocket::SocketState state) {
-    QString status = QString("%1:%2").arg(m_settings.host).arg(m_settings.port);
+    qDebug()<<"socketStateUpdate"<<state;
+    QString status;
+    switch (m_settings.type) {
+    case DialogSettings::Tcp:
+        status.append(QString("%1:%2").arg(m_settings.host).arg(m_settings.port));
+        break;
+    case DialogSettings::UdpUnicast:
+        status.append(QString("UDP:%1:%2").arg(m_settings.host).arg(m_settings.port));
+        break;
+    case DialogSettings::UdpBroadcast:
+        status.append(QString("UDP:Broadcast:%1").arg(m_settings.port));
+        break;
+    default:
+        return;
+    }
     switch (state) {
     case QAbstractSocket::UnconnectedState: // The socket is not connected.
         status.append(statusSeparator).append(tr("Отключен"));
@@ -768,6 +815,7 @@ void MainWindow::socketStateUpdate(QAbstractSocket::SocketState state) {
 }
 
 void MainWindow::socketErrorOccurred(QAbstractSocket::SocketError error) {
+    qDebug()<<"socketErrorOccurred"<<error;
     switch (error) {
     case QAbstractSocket::RemoteHostClosedError:
         QMessageBox::warning(this, tr("TCP-сокет"), tr("TCP-сервер закрыл соединение."));
@@ -779,20 +827,34 @@ void MainWindow::socketErrorOccurred(QAbstractSocket::SocketError error) {
         openError(tr("Соединение отклонено. Проверьте настройки TCP-сокета."));
         break;
     default:
-        QMessageBox::warning(this, tr("TCP-сокет"), tr("Произошла ошибка: %1.").arg(m_socket->errorString()));
+        QMessageBox::warning(this, tr("TCP-сокет"), tr("Произошла ошибка: %1.").arg(m_tcp->errorString()));
     }
     disconnected();
 }
 
 void MainWindow::socketReadyRead() {
-    const QByteArray data = m_socket->readAll();
+    const QByteArray data = m_tcp->readAll();
     m_console->putData(convertData(data));
+}
+
+void MainWindow::udpReadyRead() {
+    QByteArray datagram;
+    while (m_udp->hasPendingDatagrams()) {
+        datagram.resize(qsizetype(m_udp->pendingDatagramSize()));
+        m_udp->readDatagram(datagram.data(), datagram.size());
+        m_console->putData(convertData(datagram));
+    }
 }
 
 void MainWindow::bytesWritten(qint64 bytes) {
     qDebug()<<"bytesWritten"<<bytes;
     m_bytesToWrite -= bytes;
     if (m_bytesToWrite == 0) m_timerWrite->stop();
+}
+
+void MainWindow::writeTimeout() {
+    const QString error = tr("Таймаут записи в порт '%1'.\nОшибка: %2").arg(m_serial->portName(), m_serial->errorString());
+    showWriteError(error);
 }
 
 void MainWindow::serialStateUpdate() {
@@ -940,7 +1002,9 @@ void MainWindow::writeSettings() {
 
 bool MainWindow::isOpen() const {
     switch (m_settings.type) {
-    case DialogSettings::Tcp: return m_socket->isOpen(); break;
+    case DialogSettings::Tcp: return m_tcp->isOpen(); break;
+    case DialogSettings::UdpUnicast:
+    case DialogSettings::UdpBroadcast: return (m_udp->state() == QAbstractSocket::BoundState);
     default: return m_serial->isOpen();
     }
 }
