@@ -613,6 +613,7 @@ void MainWindow::connected() {
         m_commandControls[i].actionSend->setEnabled(true);
         m_commandControls[i].actionSendInterval->setEnabled(true);
     }
+    m_console->setBackgroundRole(QPalette::Base);
 }
 
 void MainWindow::disconnected() {
@@ -637,6 +638,7 @@ void MainWindow::disconnected() {
         m_commandControls[i].actionButtonSend->setEnabled(false);
         m_commandControls[i].actionButtonSendInterval->setEnabled(false);
     }
+    m_console->setBackgroundRole(QPalette::Window);
 }
 
 
