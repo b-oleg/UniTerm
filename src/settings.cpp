@@ -96,7 +96,7 @@ void DialogSettings::setType(int idx) {
     m_ui->comboBoxStopBits->setEnabled(enable);
     m_ui->comboBoxFlowControl->setEnabled(enable);
 
-    m_ui->lineEditTcpHost->setEnabled(!enable && (idx!=2)); // Broadcast
+    m_ui->lineEditTcpHost->setEnabled(!enable && (idx!=3)); // Broadcast
     m_ui->spinBoxTcpPort->setEnabled(!enable);
 
 }
@@ -133,8 +133,8 @@ void DialogSettings::fillParameters() {
     // type
     m_ui->comboBoxType->addItem(tr("Последовательный порт"), ConnectionType::Serial);
     m_ui->comboBoxType->addItem(tr("TCP-сокет"), ConnectionType::Tcp);
+    m_ui->comboBoxType->addItem(tr("UDP Unicast"), ConnectionType::UdpUnicast);
     m_ui->comboBoxType->addItem(tr("UDP Broadcast"), ConnectionType::UdpBroadcast);
-    m_ui->comboBoxType->addItem(tr("UDP Multicast"), ConnectionType::UdpMulticast);
 
     // serial
     m_ui->comboBoxBaudRate->addItem(QString::number(QSerialPort::Baud1200), QSerialPort::Baud1200);
@@ -174,8 +174,8 @@ void DialogSettings::setSettings(Settings value) {
     // type
     switch (m_currentSettings.type) {
     case ConnectionType::Tcp: m_ui->comboBoxType->setCurrentIndex(1); break;
-    case ConnectionType::UdpBroadcast: m_ui->comboBoxType->setCurrentIndex(2); break;
-    case ConnectionType::UdpMulticast: m_ui->comboBoxType->setCurrentIndex(3); break;
+    case ConnectionType::UdpUnicast: m_ui->comboBoxType->setCurrentIndex(2); break;
+    case ConnectionType::UdpBroadcast: m_ui->comboBoxType->setCurrentIndex(3); break;
     default: m_ui->comboBoxType->setCurrentIndex(0); break;
     }
 

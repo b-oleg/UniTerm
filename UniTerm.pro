@@ -3,7 +3,7 @@ QT += widgets serialport network
 APP_NAME = "UniTerm"
 APP_DESCRIPTION = "Universal terminal"
 APP_COPYRIGHT = "Copyright 2024 Oleg Bolshakov"
-APP_VERSION = "0.5"
+APP_VERSION = "0.6"
 
 TARGET = $$APP_NAME
 TEMPLATE = app

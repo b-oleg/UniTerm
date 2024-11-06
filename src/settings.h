@@ -22,8 +22,8 @@ public:
     typedef enum {
         Serial = 0,
         Tcp = 1,
-        UdpBroadcast = 2,
-        UdpMulticast = 3
+        UdpUnicast = 2,
+        UdpBroadcast = 3
     } ConnectionType;
 
     typedef struct {

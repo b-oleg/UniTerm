@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <QSerialPort>
 #include <QTcpSocket>
+#include <QUdpSocket>
 #include <QSettings>
 #include "settings.h"
 #include "console.h"
@@ -60,6 +61,8 @@ private slots:
     void socketErrorOccurred(QAbstractSocket::SocketError error);
     void socketReadyRead();
 
+    void udpReadyRead();
+
     void bytesWritten(qint64 bytes);
     void writeTimeout();
 
@@ -82,7 +85,8 @@ private:
     QTimer *m_timerWrite = nullptr;
     QTimer *m_timerAddr = nullptr;
     QSerialPort *m_serial = nullptr;
-    QTcpSocket *m_socket = nullptr;
+    QTcpSocket *m_tcp = nullptr;
+    QUdpSocket *m_udp = nullptr;
 
 
     typedef struct {
