@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>Serial Terminal</string>
+   <string/>
   </property>
   <property name="iconSize">
    <size>
@@ -40,7 +40,7 @@
       <string>Отправить</string>
      </property>
      <property name="icon">
-      <iconset resource="res.qrc">
+      <iconset resource="../res.qrc">
        <normaloff>:/ico/send.ico</normaloff>:/ico/send.ico</iconset>
      </property>
     </widget>
@@ -49,7 +49,7 @@
       <string>Циклически</string>
      </property>
      <property name="icon">
-      <iconset resource="res.qrc">
+      <iconset resource="../res.qrc">
        <normaloff>:/ico/loop.png</normaloff>:/ico/loop.png</iconset>
      </property>
     </widget>
@@ -140,7 +140,7 @@
   </widget>
   <widget class="QDockWidget" name="dockWidgetCommands">
    <property name="windowIcon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/commands.ico</normaloff>:/ico/commands.ico</iconset>
    </property>
    <property name="windowTitle">
@@ -581,7 +581,7 @@
   </widget>
   <action name="actionAbout">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/about.ico</normaloff>:/ico/about.ico</iconset>
    </property>
    <property name="text">
@@ -599,7 +599,7 @@
   </action>
   <action name="actionConnect">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/connect.ico</normaloff>:/ico/connect.ico</iconset>
    </property>
    <property name="text">
@@ -614,7 +614,7 @@
   </action>
   <action name="actionDisconnect">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/disconnect.ico</normaloff>:/ico/disconnect.ico</iconset>
    </property>
    <property name="text">
@@ -629,7 +629,7 @@
   </action>
   <action name="actionSettings">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/settings.ico</normaloff>:/ico/settings.ico</iconset>
    </property>
    <property name="text">
@@ -647,7 +647,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/clear.ico</normaloff>:/ico/clear.ico</iconset>
    </property>
    <property name="text">
@@ -657,12 +657,12 @@
     <string>Очистить терминал</string>
    </property>
    <property name="shortcut">
-    <string>Esc</string>
+    <string>F12</string>
    </property>
   </action>
   <action name="actionQuit">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/exit.ico</normaloff>:/ico/exit.ico</iconset>
    </property>
    <property name="text">
@@ -674,7 +674,7 @@
   </action>
   <action name="actionSaveAs">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/save.ico</normaloff>:/ico/save.ico</iconset>
    </property>
    <property name="text">
@@ -695,7 +695,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/copy.ico</normaloff>:/ico/copy.ico</iconset>
    </property>
    <property name="text">
@@ -713,7 +713,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/paste.ico</normaloff>:/ico/paste.ico</iconset>
    </property>
    <property name="text">
@@ -731,7 +731,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/select.ico</normaloff>:/ico/select.ico</iconset>
    </property>
    <property name="text">
@@ -746,7 +746,7 @@
     <bool>true</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/font.ico</normaloff>:/ico/font.ico</iconset>
    </property>
    <property name="text">
@@ -767,7 +767,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/find.ico</normaloff>:/ico/find.ico</iconset>
    </property>
    <property name="text">
@@ -785,7 +785,7 @@
   </action>
   <action name="actionOpen">
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/open.ico</normaloff>:/ico/open.ico</iconset>
    </property>
    <property name="text">
@@ -803,7 +803,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/break.ico</normaloff>:/ico/break.ico</iconset>
    </property>
    <property name="text">
@@ -824,7 +824,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/rts.png</normaloff>:/ico/rts.png</iconset>
    </property>
    <property name="text">
@@ -845,7 +845,7 @@
     <bool>false</bool>
    </property>
    <property name="icon">
-    <iconset resource="res.qrc">
+    <iconset resource="../res.qrc">
      <normaloff>:/ico/dtr.png</normaloff>:/ico/dtr.png</iconset>
    </property>
    <property name="text">
@@ -861,7 +861,7 @@
  </widget>
  <layoutdefault spacing="6" margin="11"/>
  <resources>
-  <include location="res.qrc"/>
+  <include location="../res.qrc"/>
  </resources>
  <connections/>
 </ui>

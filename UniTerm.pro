@@ -1,9 +1,9 @@
-QT += widgets serialport
+QT += widgets serialport network
 
 APP_NAME = "UniTerm"
 APP_DESCRIPTION = "Universal terminal"
 APP_COPYRIGHT = "Copyright 2024 Oleg Bolshakov"
-APP_VERSION = "0.4"
+APP_VERSION = "0.5"
 
 TARGET = $$APP_NAME
 TEMPLATE = app
@@ -67,7 +67,7 @@ win32 {
     # Folder to zip
     zip.target = zip
     zip.depends = package
-    zip.commands = 7z a -tzip $$quote($${PWD}/build/$${APP_NAME}_v$${APP_VERSION}.zip) $$system_path($${PWD}/build/$${APP_NAME})
+    zip.commands = 7z a -tzip $$quote($${PWD}/build/$${APP_NAME}-v$${APP_VERSION}.zip) $$system_path($${PWD}/build/$${APP_NAME})
 
     QMAKE_EXTRA_TARGETS += package zip
 }

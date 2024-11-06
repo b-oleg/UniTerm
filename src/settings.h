@@ -19,7 +19,15 @@ class DialogSettings : public QDialog
     Q_OBJECT
 
 public:
+    typedef enum {
+        Serial = 0,
+        Tcp = 1
+    } ConnectionType;
+
     typedef struct {
+        ConnectionType type;
+        int timeoutWrite;
+
         // comport
         QString name;
         qint32 baudRate;
@@ -29,6 +37,10 @@ public:
         QSerialPort::FlowControl flowControl;
         bool dtr;
         bool rts;
+
+        // tcp
+        QString host;
+        quint16 port;
 
         // terminal
         bool localEcho;
@@ -49,10 +61,11 @@ private slots:
     void checkCustomDevicePathPolicy(int idx);
     void checkCustomBaudRatePolicy(int idx);
     void setDefault();
+    void setType(int idx);
 
 private:
     void fillPortsInfo();
-    void fillPortsParameters();
+    void fillParameters();
     void setSettings(Settings value);
     void updateSettings();
 
