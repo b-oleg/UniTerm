@@ -21,7 +21,9 @@ class DialogSettings : public QDialog
 public:
     typedef enum {
         Serial = 0,
-        Tcp = 1
+        Tcp = 1,
+        UdpBroadcast = 2,
+        UdpMulticast = 3
     } ConnectionType;
 
     typedef struct {
