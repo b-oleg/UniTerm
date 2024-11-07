@@ -64,6 +64,8 @@
     <addaction name="actionDtr"/>
     <addaction name="actionRts"/>
     <addaction name="actionSendBreak"/>
+    <addaction name="separator"/>
+    <addaction name="actionSendFile"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -856,6 +858,24 @@
    </property>
    <property name="shortcut">
     <string>F10</string>
+   </property>
+  </action>
+  <action name="actionSendFile">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../res.qrc">
+     <normaloff>:/ico/sendFile.ico</normaloff>:/ico/sendFile.ico</iconset>
+   </property>
+   <property name="text">
+    <string>Отправить &amp;файл</string>
+   </property>
+   <property name="toolTip">
+    <string>Отправить файл</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+W</string>
    </property>
   </action>
  </widget>

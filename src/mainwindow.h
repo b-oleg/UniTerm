@@ -40,6 +40,7 @@ public:
 private slots:
     void openFile();
     void saveFileAs();
+    void sendFile();
     void showSettings();
     void selectFont();
     void about();

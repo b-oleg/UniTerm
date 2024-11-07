@@ -115,6 +115,7 @@ MainWindow::MainWindow(QWidget *parent):
     connect(m_ui->actionConnect, &QAction::triggered, this, &MainWindow::open);
     connect(m_ui->actionDisconnect, &QAction::triggered, this, &MainWindow::close);
     connect(m_ui->actionSettings, &QAction::triggered, this, &MainWindow::showSettings);
+    connect(m_ui->actionSendFile, &QAction::triggered, this, &MainWindow::sendFile);
 
     connect(m_ui->actionAbout, &QAction::triggered, this, &MainWindow::about);
 
@@ -323,6 +324,13 @@ MainWindow::MainWindow(QWidget *parent):
     connect(m_console, &Console::customContextMenuRequested, this, &MainWindow::consoleContextMenu);
     m_console->setContextMenuPolicy(Qt::CustomContextMenu);
 
+    // console selected text in inactive
+    QPalette p = m_console->palette();
+    p.setColor(QPalette::Inactive, QPalette::Highlight, p.color(QPalette::Active, QPalette::Highlight));
+    p.setColor(QPalette::Inactive, QPalette::HighlightedText, p.color(QPalette::Active, QPalette::HighlightedText));
+    m_console->setPalette(p);
+    m_console->setBackgroundRole(QPalette::Window); // inactive color
+
     // settings
     readSettings();
 
@@ -526,6 +534,18 @@ void MainWindow::saveFileAs() {
     }
 }
 
+void MainWindow::sendFile() {
+    QFileDialog dialog(this, tr("Отправить файл"), ".", tr("Все файлы (*.*)"));
+    dialog.setAcceptMode(QFileDialog::AcceptOpen);
+    if (dialog.exec() == QDialog::Accepted) {
+        QFile file(dialog.selectedFiles().constFirst());
+        if (file.open(QIODevice::ReadOnly)) {
+            writeData(file.readAll());
+            file.close();
+        }
+    }
+}
+
 void MainWindow::open() {
     switch (m_settings.type) {
 
@@ -586,6 +606,7 @@ void MainWindow::connected() {
     m_ui->actionConnect->setEnabled(false);
     m_ui->actionDisconnect->setEnabled(true);
     m_ui->actionSettings->setEnabled(true);
+    m_ui->actionSendFile->setEnabled(true);
     switch (m_settings.type) {
 
     case DialogSettings::Tcp:
@@ -602,8 +623,6 @@ void MainWindow::connected() {
         m_ui->actionRts->setChecked(m_settings.rts);
         m_ui->actionDtr->setEnabled(true);
         m_ui->actionRts->setEnabled(true);
-        //m_ui->actionDtr->setVisible(true);
-        //m_ui->actionRts->setVisible(true);
         serialStateUpdate();
     }
     m_ui->actionSendBreak->setEnabled(true);
@@ -620,6 +639,7 @@ void MainWindow::disconnected() {
     m_ui->actionConnect->setEnabled(true);
     m_ui->actionDisconnect->setEnabled(false);
     m_ui->actionSettings->setEnabled(true);
+    m_ui->actionSendFile->setEnabled(false);
     switch (m_settings.type) {
     case DialogSettings::Tcp: m_ui->statusBar->showMessage(tr("TCP-сокет отключен")); break;
     case DialogSettings::UdpUnicast: m_ui->statusBar->showMessage(tr("UDP Unicast отключен")); break;

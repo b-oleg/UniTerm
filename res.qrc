@@ -41,5 +41,6 @@
         <file>ico/dtr.png</file>
         <file>ico/rts.png</file>
         <file>ico/break.ico</file>
+        <file>ico/sendFile.ico</file>
     </qresource>
 </RCC>
