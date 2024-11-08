@@ -907,28 +907,25 @@ void MainWindow::writeTimeout() {
 
 void MainWindow::serialStateUpdate() {
     QString status = m_settings.name;
-    if (m_serial->isOpen()) {
-        status.append(statusSeparator).append(QString::number(m_serial->baudRate()));
-        status.append(statusSeparator).append(QString::number(m_serial->dataBits()));
-        switch (m_serial->parity()) {
-        case QSerialPort::NoParity: status.append('N');break;
-        case QSerialPort::EvenParity: status.append('E');break;
-        case QSerialPort::OddParity: status.append('O');break;
-        case QSerialPort::SpaceParity: status.append('S');break;
-        case QSerialPort::MarkParity: status.append('M');break;
-        }
-        switch (m_serial->stopBits()) {
-        case QSerialPort::OneStop: status.append(QStringLiteral("1"));break;
-        case QSerialPort::OneAndHalfStop: status.append(QStringLiteral("1.5"));break;
-        case QSerialPort::TwoStop: status.append(QStringLiteral("2"));break;
-        }
-        switch (m_serial->flowControl()) {
-        case QSerialPort::NoFlowControl: status.append('N');break;
-        case QSerialPort::HardwareControl: status.append('H');break;
-        case QSerialPort::SoftwareControl: status.append('S');break;
-        }
-    } else {
-        status.append(statusSeparator).append(tr("Закрыт"));
+    status.append(statusSeparator).append(m_serial->isOpen() ? tr("Открыт") : tr("Закрыт"));
+    status.append(statusSeparator).append(QString::number(m_serial->baudRate()));
+    status.append(statusSeparator).append(QString::number(m_serial->dataBits()));
+    switch (m_serial->parity()) {
+    case QSerialPort::NoParity: status.append('N');break;
+    case QSerialPort::EvenParity: status.append('E');break;
+    case QSerialPort::OddParity: status.append('O');break;
+    case QSerialPort::SpaceParity: status.append('S');break;
+    case QSerialPort::MarkParity: status.append('M');break;
+    }
+    switch (m_serial->stopBits()) {
+    case QSerialPort::OneStop: status.append(QStringLiteral("1"));break;
+    case QSerialPort::OneAndHalfStop: status.append(QStringLiteral("1.5"));break;
+    case QSerialPort::TwoStop: status.append(QStringLiteral("2"));break;
+    }
+    switch (m_serial->flowControl()) {
+    case QSerialPort::NoFlowControl: status.append('N');break;
+    case QSerialPort::HardwareControl: status.append('H');break;
+    case QSerialPort::SoftwareControl: status.append('S');break;
     }
     updateStatus(status);
 }
