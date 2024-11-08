@@ -97,6 +97,8 @@ void DialogSettings::setType(int idx) {
     m_ui->comboBoxParity->setEnabled(enable);
     m_ui->comboBoxStopBits->setEnabled(enable);
     m_ui->comboBoxFlowControl->setEnabled(enable);
+    m_ui->checkBoxRts->setEnabled(enable);
+    m_ui->checkBoxDtr->setEnabled(enable);
 
     m_ui->lineEditTcpHost->setEnabled(!enable && (idx!=3)); // Broadcast
     m_ui->spinBoxTcpPort->setEnabled(!enable);
