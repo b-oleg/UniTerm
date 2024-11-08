@@ -10,6 +10,7 @@ TEMPLATE = app
 
 SOURCES += \
     src/actionbutton.cpp \
+    src/crc.cpp \
     src/find.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
@@ -18,6 +19,7 @@ SOURCES += \
 
 HEADERS += \
     src/actionbutton.h \
+    src/crc.h \
     src/find.h \
     src/mainwindow.h \
     src/console.h \

@@ -21,7 +21,8 @@
 #define DEFAULT_HOST            "localhost"
 #define DEFAULT_PORT            2000
 
-#define COMMAND_COUNT   10
+#define COMMAND_COUNT           10
+
 const char* defaultCommand[COMMAND_COUNT]  = { "AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
 const char* defaultShortcutSend[COMMAND_COUNT]  = { "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+0" };
 const char* defaultShortcutLoop[COMMAND_COUNT]  = { "Shift+1", "Shift+2", "Shift+3", "Shift+4", "Shift+5", "Shift+6", "Shift+7", "Shift+8", "Shift+9", "Shift+0" };
@@ -40,7 +41,8 @@ MainWindow::MainWindow(QWidget *parent):
     m_timerAddr(new QTimer(this)),
     m_serial(new QSerialPort(this)),
     m_tcp(new QTcpSocket(this)),
-    m_udp(new QUdpSocket(this))
+    m_udp(new QUdpSocket(this)),
+    m_crc(new Crc(this))
 {
     m_ui->setupUi(this);
     setCentralWidget(m_console);
@@ -103,6 +105,7 @@ MainWindow::MainWindow(QWidget *parent):
     setToolStatusTip(m_ui->actionConnect);
     setToolStatusTip(m_ui->actionDisconnect);
     setToolStatusTip(m_ui->actionSettings);
+    setToolStatusTip(m_ui->actionSendFile);
     setToolStatusTip(m_ui->actionSendBreak);
     setToolStatusTip(m_ui->actionDtr);
     setToolStatusTip(m_ui->actionRts);
@@ -189,12 +192,19 @@ MainWindow::MainWindow(QWidget *parent):
     m_ui->labelNum->setStatusTip(m_ui->labelNum->toolTip());
     m_ui->labelCommand->setToolTip(tr("Команда"));
     m_ui->labelCommand->setStatusTip(m_ui->labelCommand->toolTip());
+    m_ui->labelCrc->setToolTip(tr("Контрольная сумма"));
+    m_ui->labelCrc->setStatusTip(m_ui->labelCrc->toolTip());
     m_ui->labelSend->setToolTip(tr("Отправить команду"));
     m_ui->labelSend->setStatusTip(m_ui->labelSend->toolTip());
     m_ui->labelInterval->setToolTip(tr("Интервал отправки команды в циклическом режиме"));
     m_ui->labelInterval->setStatusTip(m_ui->labelInterval->toolTip());
     m_ui->labelSendInterval->setToolTip(tr("Отправлять команду циклически"));
     m_ui->labelSendInterval->setStatusTip(m_ui->labelSendInterval->toolTip());
+
+    m_ui->checkBoxCrc->setToolTip(tr("Показать/скрыть параметры добавления контрольной суммы"));
+    m_ui->checkBoxCrc->setStatusTip(m_ui->checkBoxCrc->toolTip());
+    m_ui->checkBoxInterval->setToolTip(tr("Показать/скрыть параметры циклической отправки команд"));
+    m_ui->checkBoxInterval->setStatusTip(m_ui->checkBoxInterval->toolTip());
 
     // commands
     m_commandControls.resize(COMMAND_COUNT);
@@ -209,6 +219,9 @@ MainWindow::MainWindow(QWidget *parent):
         m_commandControls[i].lineEditCommand = new QLineEdit(this);
         m_commandControls[i].lineEditCommand->setStatusTip(QString(tr("Команда №%1")).arg(i+1));
         m_commandControls[i].lineEditCommand->setToolTip(m_commandControls[i].lineEditCommand->statusTip() + "\n" + m_ui->labelCommandsInfo->text());
+
+        m_commandControls[i].comboBoxCrc = new QComboBox(this);
+        m_commandControls[i].comboBoxCrc->addItems(m_crc->list());
 
         m_commandControls[i].actionButtonSend = new ActionButton(this);
         m_commandControls[i].actionButtonSend->setIcon(QIcon(QStringLiteral(":/ico/send.ico")));
@@ -227,9 +240,10 @@ MainWindow::MainWindow(QWidget *parent):
 
         m_ui->gridLayoutCommands->addWidget(m_commandControls[i].labelNum, i+1, 0);
         m_ui->gridLayoutCommands->addWidget(m_commandControls[i].lineEditCommand, i+1, 1);
-        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].actionButtonSend, i+1, 2);
-        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].spinBoxInterval, i+1, 3);
-        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].actionButtonSendInterval, i+1, 4);
+        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].comboBoxCrc, i+1, 2);
+        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].actionButtonSend, i+1, 3);
+        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].spinBoxInterval, i+1, 4);
+        m_ui->gridLayoutCommands->addWidget(m_commandControls[i].actionButtonSendInterval, i+1, 5);
 
         // action send
         m_commandControls[i].actionSend = new QAction(QString(tr("Команда №%1")).arg(i+1), this);
@@ -243,7 +257,7 @@ MainWindow::MainWindow(QWidget *parent):
 
         connect(m_commandControls[i].actionSend, &QAction::triggered, this, [=]() {
             QByteArray cmd = strToCmd(m_commandControls[i].lineEditCommand->text());
-            writeData(cmd);
+            writeData(m_crc->addCrc(cmd, m_commandControls[i].comboBoxCrc->currentIndex()));
         });
         m_commandControls[i].actionButtonSend->setAction(m_commandControls[i].actionSend);
         connect(m_commandControls[i].lineEditCommand, &QLineEdit::returnPressed, m_commandControls[i].actionSend, &QAction::trigger);
@@ -273,7 +287,22 @@ MainWindow::MainWindow(QWidget *parent):
             }
         });
         m_commandControls[i].actionButtonSendInterval->setAction(m_commandControls[i].actionSendInterval);
+
     }
+    //
+    connect(m_ui->checkBoxCrc, &QCheckBox::toggled, this, [=](bool checked) {
+        m_ui->labelCrc->setVisible(checked);
+        for (int i = 0; i < COMMAND_COUNT; ++i) m_commandControls[i].comboBoxCrc->setVisible(checked);
+    });
+    connect(m_ui->checkBoxInterval, &QCheckBox::toggled, this, [=](bool checked) {
+        m_ui->labelInterval->setVisible(checked);
+        m_ui->labelSendInterval->setVisible(checked);
+        for (int i = 0; i < COMMAND_COUNT; ++i) {
+            m_commandControls[i].spinBoxInterval->setVisible(checked);
+            m_commandControls[i].actionButtonSendInterval->setVisible(checked);
+        }
+    });
+
 
     // Enumeration
     m_ui->groupBoxEnumerateFormat->setStatusTip(m_ui->lineEditEnumerateFormat->toolTip());
@@ -290,8 +319,12 @@ MainWindow::MainWindow(QWidget *parent):
     m_ui->spinBoxEnumerateDigits->setStatusTip(m_ui->labelEnumerateDigits->statusTip());
     m_ui->spinBoxEnumerateInterval->setToolTip(m_ui->labelEnumerateInterval->statusTip());
     m_ui->spinBoxEnumerateInterval->setStatusTip(m_ui->labelEnumerateInterval->statusTip());
+    m_ui->comboBoxEnumerateCrc->setToolTip(m_ui->labelEnumerateCrc->statusTip());
+    m_ui->comboBoxEnumerateCrc->setStatusTip(m_ui->labelEnumerateCrc->statusTip());
     m_ui->pushButtonStart->setToolTip(m_ui->pushButtonStart->statusTip());
     m_ui->pushButtonStop->setToolTip(m_ui->pushButtonStop->statusTip());
+
+    m_ui->comboBoxEnumerateCrc->addItems(m_crc->list());
 
     connect(m_ui->comboBoxEnumerateType, &QComboBox::currentIndexChanged, this, [=](int index){
         addrRangeUpdate(index, m_ui->spinBoxEnumerateDigits->value());
@@ -313,7 +346,8 @@ MainWindow::MainWindow(QWidget *parent):
     });
     connect(m_timerAddr, &QTimer::timeout, this, [=](){
         if (m_addr <= m_ui->spinBoxEnumerateTo->value()) {
-            writeData(addrToCmd(m_ui->lineEditEnumerateFormat->text()));
+            QByteArray cmd = addrToCmd(m_ui->lineEditEnumerateFormat->text());
+            writeData(m_crc->addCrc(cmd, m_ui->comboBoxEnumerateCrc->currentIndex()));
             m_addr++;
         } else {
             m_ui->pushButtonStop->click();
@@ -939,13 +973,17 @@ void MainWindow::readSettings() {
     m_ui->spinBoxEnumerateFrom->setValue(settings.value("From", 0).toInt());
     m_ui->spinBoxEnumerateTo->setValue(settings.value("To", 99).toInt());
     m_ui->spinBoxEnumerateInterval->setValue(settings.value("Interval", 50).toInt());
+    m_ui->comboBoxEnumerateCrc->setCurrentIndex(settings.value("Crc", 0).toInt());
     settings.endGroup();
 
     settings.beginGroup("Commands");
     for (int i = 0; i < COMMAND_COUNT; ++i) {
         m_commandControls[i].lineEditCommand->setText(settings.value(QString("Value%1").arg(i+1), defaultCommand[i]).toString());
+        m_commandControls[i].comboBoxCrc->setCurrentIndex(settings.value(QString("Crc%1").arg(i+1), 0).toInt());
         m_commandControls[i].spinBoxInterval->setValue(settings.value(QString("Interval%1").arg(i+1), 1000).toInt());
     }
+    m_ui->checkBoxCrc->setChecked(settings.value("Crc", true).toBool());
+    m_ui->checkBoxInterval->setChecked(settings.value("Interval", true).toBool());
     settings.endGroup();
 
     settings.beginGroup("Settings");
@@ -991,13 +1029,17 @@ void MainWindow::writeSettings() {
     settings.setValue("From", m_ui->spinBoxEnumerateFrom->value());
     settings.setValue("To", m_ui->spinBoxEnumerateTo->value());
     settings.setValue("Interval", m_ui->spinBoxEnumerateInterval->value());
+    settings.setValue("Crc", m_ui->comboBoxEnumerateCrc->currentIndex());
     settings.endGroup();
 
     settings.beginGroup("Commands");
     for (int i = 0; i < COMMAND_COUNT; ++i) {
         settings.setValue(QString("Value%1").arg(i+1), m_commandControls[i].lineEditCommand->text());
+        settings.setValue(QString("Crc%1").arg(i+1), m_commandControls[i].comboBoxCrc->currentIndex());
         settings.setValue(QString("Interval%1").arg(i+1), m_commandControls[i].spinBoxInterval->value());
     }
+    settings.setValue("Crc", m_ui->checkBoxCrc->isChecked());
+    settings.setValue("Interval", m_ui->checkBoxInterval->isChecked());
     settings.endGroup();
 
     settings.beginGroup("Settings");

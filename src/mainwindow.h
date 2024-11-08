@@ -10,6 +10,7 @@
 #include "console.h"
 #include "find.h"
 #include "actionbutton.h"
+#include "crc.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -19,6 +20,7 @@ class QToolButton;
 class QAction;
 class QSpinBox;
 class QTimer;
+class QComboBox;
 
 namespace Ui {
 class MainWindow;
@@ -88,6 +90,7 @@ private:
     QSerialPort *m_serial = nullptr;
     QTcpSocket *m_tcp = nullptr;
     QUdpSocket *m_udp = nullptr;
+    Crc *m_crc = nullptr;
 
 
     typedef struct {
@@ -99,6 +102,7 @@ private:
         ActionButton *actionButtonSendInterval;
         QAction *actionSendInterval;
         QTimer *timer;
+        QComboBox *comboBoxCrc;
     } CommandControls;
 
     QVector<CommandControls> m_commandControls;

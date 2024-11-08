@@ -173,13 +173,6 @@
        <property name="spacing">
         <number>2</number>
        </property>
-       <item row="0" column="0">
-        <widget class="QLabel" name="labelNum">
-         <property name="text">
-          <string>№</string>
-         </property>
-        </widget>
-       </item>
        <item row="0" column="1">
         <widget class="QLabel" name="labelCommand">
          <property name="text">
@@ -187,26 +180,77 @@
          </property>
         </widget>
        </item>
-       <item row="0" column="2">
+       <item row="0" column="3">
         <widget class="QLabel" name="labelSend">
          <property name="text">
           <string>Отпр.</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="3">
+       <item row="0" column="0">
+        <widget class="QLabel" name="labelNum">
+         <property name="text">
+          <string>№</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="4">
         <widget class="QLabel" name="labelInterval">
          <property name="text">
           <string>Интервал</string>
          </property>
         </widget>
        </item>
-       <item row="0" column="4">
+       <item row="0" column="5">
         <widget class="QLabel" name="labelSendInterval">
          <property name="text">
           <string>Цикл.</string>
          </property>
         </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLabel" name="labelCrc">
+         <property name="text">
+          <string>Контр.сумма</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </item>
+     <item>
+      <layout class="QHBoxLayout" name="horizontalLayout_2">
+       <item>
+        <widget class="QCheckBox" name="checkBoxCrc">
+         <property name="text">
+          <string>Контр.сумма</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="checkBoxInterval">
+         <property name="text">
+          <string>Цикл.</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <spacer name="horizontalSpacer">
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>40</width>
+           <height>20</height>
+          </size>
+         </property>
+        </spacer>
        </item>
       </layout>
      </item>
@@ -512,6 +556,32 @@
           </property>
           <property name="maximum">
            <number>1000</number>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="0">
+         <widget class="QLabel" name="labelEnumerateCrc">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="statusTip">
+           <string>Добавить контрольную сумму</string>
+          </property>
+          <property name="text">
+           <string>CRC:</string>
+          </property>
+         </widget>
+        </item>
+        <item row="5" column="1">
+         <widget class="QComboBox" name="comboBoxEnumerateCrc">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
           </property>
          </widget>
         </item>
