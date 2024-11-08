@@ -442,7 +442,6 @@ QByteArray MainWindow::addrToBin(int value, int digits, QDataStream::ByteOrder b
     ds.setByteOrder(QDataStream::BigEndian);
     ds << quint32(value);
 
-    qDebug()<<bin;
     switch (digits) {
     case 1: switch (byteOrder) {
         case QDataStream::LittleEndian:
@@ -591,9 +590,7 @@ void MainWindow::open() {
 
     case DialogSettings::UdpUnicast:
     case DialogSettings::UdpBroadcast:
-        qDebug()<<"udp open"<<m_udp->state();
         m_udp->bind(m_settings.port, QUdpSocket::ShareAddress);
-        qDebug()<<"bind"<<m_udp->state();
         connected();
         break;
 
@@ -623,11 +620,9 @@ void MainWindow::close() {
     case DialogSettings::Tcp: if (m_tcp->isOpen()) m_tcp->close(); break;
     case DialogSettings::UdpUnicast:
     case DialogSettings::UdpBroadcast:
-        qDebug()<<"close"<<m_udp->state();
         if (m_udp->state() == QAbstractSocket::BoundState) {
             m_udp->close();//abort
         }
-        qDebug()<<"after"<<m_udp->state();
         disconnected();
         break;
     default: // DialogSettings::Serial
@@ -831,7 +826,6 @@ void MainWindow::consoleContextMenu(const QPoint &pos) {
 }
 
 void MainWindow::socketStateUpdate(QAbstractSocket::SocketState state) {
-    qDebug()<<"socketStateUpdate"<<state;
     QString status;
     switch (m_settings.type) {
     case DialogSettings::Tcp:
@@ -871,7 +865,6 @@ void MainWindow::socketStateUpdate(QAbstractSocket::SocketState state) {
 }
 
 void MainWindow::socketErrorOccurred(QAbstractSocket::SocketError error) {
-    qDebug()<<"socketErrorOccurred"<<error;
     switch (error) {
     case QAbstractSocket::RemoteHostClosedError:
         QMessageBox::warning(this, tr("TCP-сокет"), tr("TCP-сервер закрыл соединение."));
@@ -903,7 +896,6 @@ void MainWindow::udpReadyRead() {
 }
 
 void MainWindow::bytesWritten(qint64 bytes) {
-    qDebug()<<"bytesWritten"<<bytes;
     m_bytesToWrite -= bytes;
     if (m_bytesToWrite == 0) m_timerWrite->stop();
 }
