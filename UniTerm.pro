@@ -12,6 +12,7 @@ SOURCES += \
     src/actionbutton.cpp \
     src/crc.cpp \
     src/find.cpp \
+    src/labelled.cpp \
     src/main.cpp \
     src/mainwindow.cpp \
     src/console.cpp \
@@ -21,6 +22,7 @@ HEADERS += \
     src/actionbutton.h \
     src/crc.h \
     src/find.h \
+    src/labelled.h \
     src/mainwindow.h \
     src/console.h \
     src/settings.h
