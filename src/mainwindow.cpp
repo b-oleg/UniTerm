@@ -539,7 +539,7 @@ void MainWindow::addrStart(bool value) {
 }
 
 void MainWindow::openFile() {
-    QFileDialog dialog(this, tr("Открыть"), ".", tr("Текстовый документ (*.txt)"));
+    QFileDialog dialog(this, tr("Открыть"), m_dir, tr("Текстовый документ (*.txt)"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     if (dialog.exec() == QDialog::Accepted) {
         QFile file(dialog.selectedFiles().constFirst());
@@ -547,13 +547,14 @@ void MainWindow::openFile() {
             m_console->clear();
             QString content = QString::fromLocal8Bit(file.readAll());
             m_console->setPlainText(content);
+            m_dir = dialog.directory().absolutePath();
             file.close();
         }
     }
 }
 
 void MainWindow::saveFileAs() {
-    QFileDialog dialog(this, tr("Сохранить как..."), ".", tr("Текстовый документ (*.txt)"));
+    QFileDialog dialog(this, tr("Сохранить как..."), m_dir, tr("Текстовый документ (*.txt)"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.selectFile(QDateTime::currentDateTime().toString("yyyy-MM-dd hh-mm-ss"));
     dialog.setFileMode(QFileDialog::AnyFile);
@@ -562,18 +563,20 @@ void MainWindow::saveFileAs() {
         if (file.open(QIODevice::WriteOnly)) {
             QTextStream out(&file);
             out << m_console->toPlainText();
+            m_dir = dialog.directory().absolutePath();
             file.close();
         }
     }
 }
 
 void MainWindow::sendFile() {
-    QFileDialog dialog(this, tr("Отправить файл"), ".", tr("Все файлы (*.*)"));
+    QFileDialog dialog(this, tr("Отправить файл"), m_dir, tr("Все файлы (*.*)"));
     dialog.setAcceptMode(QFileDialog::AcceptOpen);
     if (dialog.exec() == QDialog::Accepted) {
         QFile file(dialog.selectedFiles().constFirst());
         if (file.open(QIODevice::ReadOnly)) {
             writeData(file.readAll());
+            m_dir = dialog.directory().absolutePath();
             file.close();
         }
     }
@@ -994,6 +997,8 @@ void MainWindow::readSettings() {
     if (f.fromString(s)) m_console->setFont(f);
     settings.endGroup();
 
+    m_dir = settings.value("Directory", false).toString();
+
     if (settings.value("Connected", false).toBool()) open();
 }
 
@@ -1049,6 +1054,8 @@ void MainWindow::writeSettings() {
     settings.setValue("LocalEcho", m_settings.localEcho);
     settings.setValue("TimeStamp", m_settings.timeStamp);
     settings.endGroup();
+
+    settings.setValue("Directory", m_dir);
 
     settings.setValue("Connected", isOpen());
 }

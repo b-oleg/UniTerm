@@ -91,6 +91,7 @@ private:
     QTcpSocket *m_tcp = nullptr;
     QUdpSocket *m_udp = nullptr;
     Crc *m_crc = nullptr;
+    QString m_dir;
 
 
     typedef struct {
