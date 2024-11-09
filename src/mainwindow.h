@@ -10,6 +10,7 @@
 #include "console.h"
 #include "find.h"
 #include "actionbutton.h"
+#include "labelled.h"
 #include "crc.h"
 
 QT_BEGIN_NAMESPACE
@@ -82,6 +83,16 @@ private:
     DialogFind *m_find = nullptr;
 
     QLabel *m_labelStatus = nullptr;
+    LabelLed *m_labelLedDtr = nullptr;
+    LabelLed *m_labelLedRts = nullptr;
+    LabelLed *m_labelLedCts = nullptr;
+    LabelLed *m_labelLedDsr = nullptr;
+    LabelLed *m_labelLedCd = nullptr;
+    LabelLed *m_labelLedRi = nullptr;
+    LabelLed *m_labelLedStd = nullptr;
+    LabelLed *m_labelLedSrd = nullptr;
+    QTimer *m_timerSerialSignals = nullptr;
+    void readSerialSignals();
 
     DialogSettings::Settings m_settings;
     qint64 m_bytesToWrite = 0;

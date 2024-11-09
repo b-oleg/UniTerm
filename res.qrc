@@ -42,5 +42,7 @@
         <file>ico/rts.png</file>
         <file>ico/break.ico</file>
         <file>ico/sendFile.ico</file>
+        <file>ico/led-on.png</file>
+        <file>ico/led-off.png</file>
     </qresource>
 </RCC>

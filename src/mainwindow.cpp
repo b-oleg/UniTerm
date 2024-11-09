@@ -17,11 +17,12 @@
 #include <QFontDialog>
 #include <QDataStream>
 
-#define DEFAULT_TIMEOUT_WRITE   5000
-#define DEFAULT_HOST            "localhost"
-#define DEFAULT_PORT            2000
+#define DEFAULT_TIMEOUT_WRITE               5000
+#define DEFAULT_HOST                        "localhost"
+#define DEFAULT_PORT                        2000
+#define DEFAULT_SERIAL_SIGNALS_INTERVAL     100
 
-#define COMMAND_COUNT           10
+#define COMMAND_COUNT                       10
 
 const char* defaultCommand[COMMAND_COUNT]  = { "AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
 const char* defaultShortcutSend[COMMAND_COUNT]  = { "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+0" };
@@ -37,6 +38,15 @@ MainWindow::MainWindow(QWidget *parent):
     m_console(new Console(this)),
     m_find(new DialogFind(m_console, this)),
     m_labelStatus(new QLabel(this)),
+    m_labelLedDtr(new LabelLed(this, "DTR", false)),
+    m_labelLedRts(new LabelLed(this, "RTS", false)),
+    m_labelLedCts(new LabelLed(this, "CTS", false)),
+    m_labelLedDsr(new LabelLed(this, "DSR", false)),
+    m_labelLedCd(new LabelLed(this, "CD", false)),
+    m_labelLedRi(new LabelLed(this, "RI", false)),
+    m_labelLedStd(new LabelLed(this, "ST", false)),
+    m_labelLedSrd(new LabelLed(this, "SR", false)),
+    m_timerSerialSignals(new QTimer(this)),
     m_timerWrite(new QTimer(this)),
     m_timerAddr(new QTimer(this)),
     m_serial(new QSerialPort(this)),
@@ -50,7 +60,41 @@ MainWindow::MainWindow(QWidget *parent):
     m_ui->actionConnect->setEnabled(true);
     m_ui->actionDisconnect->setEnabled(false);
 
+    // status
     m_ui->statusBar->addPermanentWidget(m_labelStatus);
+    m_ui->statusBar->addPermanentWidget(m_labelLedDtr);
+    m_ui->statusBar->addPermanentWidget(m_labelLedRts);
+    m_ui->statusBar->addPermanentWidget(m_labelLedCts);
+    m_ui->statusBar->addPermanentWidget(m_labelLedDsr);
+    m_ui->statusBar->addPermanentWidget(m_labelLedCd);
+    m_ui->statusBar->addPermanentWidget(m_labelLedRi);
+    m_ui->statusBar->addPermanentWidget(m_labelLedStd);
+    m_ui->statusBar->addPermanentWidget(m_labelLedSrd);
+
+    m_labelLedDtr->setVisible(false);
+    m_labelLedRts->setVisible(false);
+    m_labelLedCts->setVisible(false);
+    m_labelLedDsr->setVisible(false);
+    m_labelLedCd->setVisible(false);
+    m_labelLedRi->setVisible(false);
+    m_labelLedStd->setVisible(false);
+    m_labelLedSrd->setVisible(false);
+
+    m_labelLedDtr->setStatusTip(tr("Сигнал 'Data Terminal Ready'"));
+    m_labelLedRts->setStatusTip(tr("Сигнал 'Request To Send'"));
+    m_labelLedCts->setStatusTip(tr("Сигнал 'Clear To Send'"));
+    m_labelLedDsr->setStatusTip(tr("Сигнал 'Data Set Ready'"));
+    m_labelLedCd->setStatusTip(tr("Сигнал 'Data Carrier Detect'"));
+    m_labelLedRi->setStatusTip(tr("Сигнал 'Ring Indicator'"));
+    m_labelLedStd->setStatusTip(tr("Сигнал 'Secondary Transmitted Data'"));
+    m_labelLedSrd->setStatusTip(tr("Сигнал 'Secondary Received Data'"));
+
+    connect(m_serial, &QSerialPort::dataTerminalReadyChanged, m_labelLedDtr, &LabelLed::setLed);
+    connect(m_serial, &QSerialPort::dataTerminalReadyChanged, this, &MainWindow::readSerialSignals);
+    connect(m_serial, &QSerialPort::requestToSendChanged, m_labelLedRts, &LabelLed::setLed);
+    connect(m_serial, &QSerialPort::requestToSendChanged, this, &MainWindow::readSerialSignals);
+    connect(m_timerSerialSignals, &QTimer::timeout, this, &MainWindow::readSerialSignals);
+    m_timerSerialSignals->setInterval(DEFAULT_SERIAL_SIGNALS_INTERVAL);
 
     // dock
     m_ui->dockWidgetEnumerate->toggleViewAction()->setIcon(QIcon(":/ico/enumeration.ico"));
@@ -655,6 +699,15 @@ void MainWindow::connected() {
         m_ui->actionRts->setChecked(m_settings.rts);
         m_ui->actionDtr->setEnabled(true);
         m_ui->actionRts->setEnabled(true);
+        m_labelLedDtr->setVisible(true);
+        m_labelLedRts->setVisible(true);
+        m_labelLedCts->setVisible(true);
+        m_labelLedDsr->setVisible(true);
+        m_labelLedCd->setVisible(true);
+        m_labelLedRi->setVisible(true);
+        m_labelLedStd->setVisible(true);
+        m_labelLedSrd->setVisible(true);
+        m_timerSerialSignals->start();
         serialStateUpdate();
     }
     m_ui->actionSendBreak->setEnabled(true);
@@ -678,6 +731,15 @@ void MainWindow::disconnected() {
     case DialogSettings::UdpBroadcast: m_ui->statusBar->showMessage(tr("UDP Broadcast отключен")); break;
     default: // DialogSettings::Serial
         m_ui->statusBar->showMessage(tr("Последовательный порт отключен"));
+        m_labelLedDtr->setVisible(false);
+        m_labelLedRts->setVisible(false);
+        m_labelLedCts->setVisible(false);
+        m_labelLedDsr->setVisible(false);
+        m_labelLedCd->setVisible(false);
+        m_labelLedRi->setVisible(false);
+        m_labelLedStd->setVisible(false);
+        m_labelLedSrd->setVisible(false);
+        m_timerSerialSignals->stop();
         serialStateUpdate();
     }
     m_ui->actionDtr->setEnabled(false);
@@ -1058,6 +1120,16 @@ void MainWindow::writeSettings() {
     settings.setValue("Directory", m_dir);
 
     settings.setValue("Connected", isOpen());
+}
+
+void MainWindow::readSerialSignals() {
+    auto ps = m_serial->pinoutSignals();
+    m_labelLedCts->setLed(ps & QSerialPort::ClearToSendSignal);
+    m_labelLedDsr->setLed(ps & QSerialPort::DataSetReadySignal);
+    m_labelLedCd->setLed(ps & QSerialPort::DataCarrierDetectSignal);
+    m_labelLedRi->setLed(ps & QSerialPort::RingIndicatorSignal);
+    m_labelLedStd->setLed(ps & QSerialPort::SecondaryTransmittedDataSignal);
+    m_labelLedSrd->setLed(ps & QSerialPort::SecondaryReceivedDataSignal);
 }
 
 bool MainWindow::isOpen() const {
