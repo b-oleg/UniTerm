@@ -942,14 +942,6 @@ void MainWindow::showWriteError(const QString &message) {
 void MainWindow::readSettings() {
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
 
-    settings.beginGroup("Window");
-    restoreGeometry(settings.value("Geometry").toByteArray());
-    restoreState(settings.value("State").toByteArray());
-    QString s = settings.value("Font", m_console->font().toString()).toString();
-    QFont f;
-    if (f.fromString(s)) m_console->setFont(f);
-    settings.endGroup();
-
     settings.beginGroup("Find");
     m_find->restoreGeometry(settings.value("Geometry").toByteArray());
     m_find->setOpacity(settings.value("Opacity", 1.0).toDouble());
@@ -992,6 +984,14 @@ void MainWindow::readSettings() {
     m_settings.hexAll = settings.value("HexAll", false).toBool();
     m_settings.localEcho = settings.value("LocalEcho", true).toBool();
     m_settings.timeStamp = settings.value("TimeStamp", false).toBool();
+    settings.endGroup();
+
+    settings.beginGroup("Window");
+    restoreGeometry(settings.value("Geometry").toByteArray());
+    restoreState(settings.value("State").toByteArray());
+    QString s = settings.value("Font", m_console->font().toString()).toString();
+    QFont f;
+    if (f.fromString(s)) m_console->setFont(f);
     settings.endGroup();
 
     if (settings.value("Connected", false).toBool()) open();
