@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>600</width>
-    <height>400</height>
+    <height>401</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -123,6 +123,8 @@
    <addaction name="actionDisconnect"/>
    <addaction name="separator"/>
    <addaction name="actionSettings"/>
+   <addaction name="separator"/>
+   <addaction name="actionSendFile"/>
    <addaction name="separator"/>
    <addaction name="actionDtr"/>
    <addaction name="actionRts"/>
