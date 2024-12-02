@@ -22,7 +22,7 @@
 #define DEFAULT_PORT                        2000
 #define DEFAULT_SERIAL_SIGNALS_INTERVAL     100
 
-#define COMMAND_COUNT                       10
+#define COMMAND_COUNT                       20
 
 const char* defaultCommand[COMMAND_COUNT]  = { "AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
 const char* defaultShortcutSend[COMMAND_COUNT]  = { "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+0" };
@@ -292,12 +292,12 @@ MainWindow::MainWindow(QWidget *parent):
         // action send
         m_commandControls[i].actionSend = new QAction(QString(tr("Команда №%1")).arg(i+1), this);
         m_commandControls[i].actionSend->setIcon(QIcon(QStringLiteral(":/ico/%1.png").arg(i+1)));
-        m_commandControls[i].actionSend->setShortcut(QKeySequence(defaultShortcutSend[i]));
+        if (i<10) m_commandControls[i].actionSend->setShortcut(QKeySequence(defaultShortcutSend[i]));
         m_commandControls[i].actionSend->setEnabled(false);
         m_commandControls[i].actionSend->setToolTip(QString(tr("Отправить команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSend->shortcut().toString()));
         m_commandControls[i].actionSend->setStatusTip(m_commandControls[i].actionSend->toolTip());
         m_ui->menuSend->addAction(m_commandControls[i].actionSend);
-        m_ui->toolBarCommand->addAction(m_commandControls[i].actionSend);
+        if (i<10) m_ui->toolBarCommand->addAction(m_commandControls[i].actionSend);
 
         connect(m_commandControls[i].actionSend, &QAction::triggered, this, [=]() {
             QByteArray cmd = strToCmd(m_commandControls[i].lineEditCommand->text());
@@ -316,13 +316,13 @@ MainWindow::MainWindow(QWidget *parent):
         // action loop
         m_commandControls[i].actionSendInterval = new QAction(QString(tr("Команда №%1")).arg(i+1), this);
         m_commandControls[i].actionSendInterval->setIcon(QIcon(QString(":/ico/%1-loop.png").arg(i+1)));
-        m_commandControls[i].actionSendInterval->setShortcut(QKeySequence(defaultShortcutLoop[i]));
+        if (i<10) m_commandControls[i].actionSendInterval->setShortcut(QKeySequence(defaultShortcutLoop[i]));
         m_commandControls[i].actionSendInterval->setEnabled(false);
         m_commandControls[i].actionSendInterval->setCheckable(true);
         m_commandControls[i].actionSendInterval->setToolTip(QString(tr("Циклически отправлять команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSendInterval->shortcut().toString()));
         m_commandControls[i].actionSendInterval->setStatusTip(m_commandControls[i].actionSendInterval->toolTip());
         m_ui->menuLoop->addAction(m_commandControls[i].actionSendInterval);
-        m_ui->toolBarCommandLoop->addAction(m_commandControls[i].actionSendInterval);
+        if (i<10) m_ui->toolBarCommandLoop->addAction(m_commandControls[i].actionSendInterval);
         connect(m_commandControls[i].actionSendInterval, &QAction::toggled, this, [=](bool checked) {
             if (checked) {
                 m_commandControls[i].timer->start(m_commandControls[i].spinBoxInterval->value());

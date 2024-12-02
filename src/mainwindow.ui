@@ -130,7 +130,11 @@
    <addaction name="actionRts"/>
    <addaction name="separator"/>
   </widget>
-  <widget class="QStatusBar" name="statusBar"/>
+  <widget class="QStatusBar" name="statusBar">
+   <property name="sizeGripEnabled">
+    <bool>true</bool>
+   </property>
+  </widget>
   <widget class="QToolBar" name="toolBarCommand">
    <property name="windowTitle">
     <string>Команды</string>
