@@ -49,6 +49,8 @@ public:
         bool timeStamp;
         bool hexLog;
         bool hexAll;
+        bool linefeed;
+        char linefeedChar;
 
     } Settings;
 

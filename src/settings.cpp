@@ -26,6 +26,8 @@ DialogSettings::DialogSettings(Settings &settings, QWidget *parent):
 
     connect(m_ui->comboBoxType,  &QComboBox::currentIndexChanged, this, &DialogSettings::setType);
 
+    connect(m_ui->checkBoxLinefeed,  &QCheckBox::toggled, m_ui->spinBoxLinefeed, &QSpinBox::setEnabled);
+
     fillParameters();
     fillPortsInfo();
     setSettings(settings);
@@ -86,6 +88,8 @@ void DialogSettings::setDefault() {
     m_currentSettings.timeStamp = false;
     m_currentSettings.hexLog = false;
     m_currentSettings.hexAll = false;
+    m_currentSettings.linefeed = true;
+    m_currentSettings.linefeedChar = 13;
     setSettings(m_currentSettings);
 }
 
@@ -200,8 +204,8 @@ void DialogSettings::setSettings(Settings value) {
         }
     }
 
-    if (m_currentSettings.baudRate <= 0) {          // если не допустимый
-        m_ui->comboBoxBaudRate->setCurrentIndex(DEFAULT_CB_BR38400_IDX); // установим 38400
+    if (m_currentSettings.baudRate <= 0) {                                  // если не допустимый
+        m_ui->comboBoxBaudRate->setCurrentIndex(DEFAULT_CB_BR38400_IDX);    // установим по усолчанию
     } else {
         index = m_ui->comboBoxBaudRate->findData(m_currentSettings.baudRate);
         if ( index >= 0 ) {
@@ -256,6 +260,8 @@ void DialogSettings::setSettings(Settings value) {
     } else {
         m_ui->radioButtonHexUnprint->setChecked(true);
     }
+    m_ui->checkBoxLinefeed->setChecked(m_currentSettings.linefeed);
+    m_ui->spinBoxLinefeed->setValue(m_currentSettings.linefeedChar);
 }
 
 void DialogSettings::updateSettings() {
@@ -297,4 +303,6 @@ void DialogSettings::updateSettings() {
     m_currentSettings.timeStamp = m_ui->checkBoxTimeStamp->isChecked();
     m_currentSettings.hexLog = m_ui->groupBoxHexLog->isChecked();
     m_currentSettings.hexAll = m_ui->radioButtonHexAll->isChecked();
+    m_currentSettings.linefeed = m_ui->checkBoxLinefeed->isChecked();
+    m_currentSettings.linefeedChar = m_ui->spinBoxLinefeed->value();
 }

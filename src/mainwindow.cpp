@@ -21,13 +21,55 @@
 #define DEFAULT_HOST                        "localhost"
 #define DEFAULT_PORT                        2000
 #define DEFAULT_SERIAL_SIGNALS_INTERVAL     100
+#define DEFAULT_LINEFEED_CHAR               13
 
-#define COMMAND_COUNT                       20
+#define COMMAND_HOT_COUNT                   10
 
-const char* defaultCommand[COMMAND_COUNT]  = { "AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
-const char* defaultShortcutSend[COMMAND_COUNT]  = { "Alt+1", "Alt+2", "Alt+3", "Alt+4", "Alt+5", "Alt+6", "Alt+7", "Alt+8", "Alt+9", "Alt+0" };
-const char* defaultShortcutLoop[COMMAND_COUNT]  = { "Shift+1", "Shift+2", "Shift+3", "Shift+4", "Shift+5", "Shift+6", "Shift+7", "Shift+8", "Shift+9", "Shift+0" };
+const char* defaultCommand[COMMAND_HOT_COUNT] = {"AT\\0d", "ATI1\\0d", "ATI2\\0d", ":04G0\\0d", ":05G0\\0d", ":06G0\\0d", ":07G0\\0d", ":08G0\\0d", ":09G0\\0d", ":10G0\\0d"};
+const char* defaultShortcutSendKey  = "Alt+%1";
+const char* defaultShortcutLoopKey  = "Shift+%1";
 const char* defaultAddrFormat = ":\\#G0\\0d";
+
+// settings keys
+const char* strFind = "Find";
+const char* strGeometry = "Geometry";
+const char* strOpacity = "Opacity";
+const char* strEnumerate = "Enumerate";
+const char* strFormat = "Format";
+const char* strType = "Type";
+const char* strDigits = "Digits";
+const char* strFrom = "From";
+const char* strTo = "To";
+const char* strInterval = "Interval";
+const char* strCrc = "Crc";
+const char* strCommands = "Commands";
+const char* strCount = "Count";
+const char* strValueNum = "Value%1";
+const char* strCrcNum = "Crc%1";
+const char* strIntervalNum = "Interval%1";
+const char* strSettings = "Settings";
+const char* strTimeoutWrite = "TimeoutWrite";
+const char* strName = "Name";
+const char* strBaud = "Baud";
+const char* strDataBits = "DataBits";
+const char* strParity = "Parity";
+const char* strStopBits = "StopBits";
+const char* strFlowControl = "FlowControl";
+const char* strDtr = "DTR";
+const char* strRts = "RTS";
+const char* strHost = "Host";
+const char* strPort = "Port";
+const char* strHexLog = "HexLog";
+const char* strHexAll = "HexAll";
+const char* strLinefeed = "Linefeed";
+const char* strLinefeedChar = "LinefeedChar";
+const char* strLocalEcho = "LocalEcho";
+const char* strTimeStamp = "TimeStamp";
+const char* strWindow = "Window";
+const char* strState = "State";
+const char* strFont = "Font";
+const char* strDirectory = "Directory";
+const char* strConnected = "Connected";
 
 const QString statusSeparator = QStringLiteral(" - ");
 
@@ -251,8 +293,11 @@ MainWindow::MainWindow(QWidget *parent):
     m_ui->checkBoxInterval->setStatusTip(m_ui->checkBoxInterval->toolTip());
 
     // commands
-    m_commandControls.resize(COMMAND_COUNT);
-    for (int i = 0; i < COMMAND_COUNT; ++i) {
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.beginGroup(strCommands);
+    m_commandControls.resize(settings.value(strCount, COMMAND_HOT_COUNT).toUInt());
+    settings.endGroup();
+    for (int i = 0; i < m_commandControls.size(); ++i) {
 
         // dock
         m_commandControls[i].labelNum = new QLabel(this);
@@ -291,13 +336,17 @@ MainWindow::MainWindow(QWidget *parent):
 
         // action send
         m_commandControls[i].actionSend = new QAction(QString(tr("Команда №%1")).arg(i+1), this);
-        m_commandControls[i].actionSend->setIcon(QIcon(QStringLiteral(":/ico/%1.png").arg(i+1)));
-        if (i<10) m_commandControls[i].actionSend->setShortcut(QKeySequence(defaultShortcutSend[i]));
         m_commandControls[i].actionSend->setEnabled(false);
-        m_commandControls[i].actionSend->setToolTip(QString(tr("Отправить команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSend->shortcut().toString()));
+        if (i < COMMAND_HOT_COUNT) {
+            m_commandControls[i].actionSend->setIcon(QIcon(QStringLiteral(":/ico/%1.png").arg(i+1)));
+            m_commandControls[i].actionSend->setShortcut(QKeySequence(QString(defaultShortcutSendKey).arg((i+1)%10)));
+            m_commandControls[i].actionSend->setToolTip(QString(tr("Отправить команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSend->shortcut().toString()));
+            m_ui->toolBarCommand->addAction(m_commandControls[i].actionSend);
+        } else {
+            m_commandControls[i].actionSend->setToolTip(QString(tr("Отправить команду №%1")).arg(i+1));
+        }
         m_commandControls[i].actionSend->setStatusTip(m_commandControls[i].actionSend->toolTip());
         m_ui->menuSend->addAction(m_commandControls[i].actionSend);
-        if (i<10) m_ui->toolBarCommand->addAction(m_commandControls[i].actionSend);
 
         connect(m_commandControls[i].actionSend, &QAction::triggered, this, [=]() {
             QByteArray cmd = strToCmd(m_commandControls[i].lineEditCommand->text());
@@ -315,14 +364,18 @@ MainWindow::MainWindow(QWidget *parent):
 
         // action loop
         m_commandControls[i].actionSendInterval = new QAction(QString(tr("Команда №%1")).arg(i+1), this);
-        m_commandControls[i].actionSendInterval->setIcon(QIcon(QString(":/ico/%1-loop.png").arg(i+1)));
-        if (i<10) m_commandControls[i].actionSendInterval->setShortcut(QKeySequence(defaultShortcutLoop[i]));
         m_commandControls[i].actionSendInterval->setEnabled(false);
         m_commandControls[i].actionSendInterval->setCheckable(true);
-        m_commandControls[i].actionSendInterval->setToolTip(QString(tr("Циклически отправлять команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSendInterval->shortcut().toString()));
+        if (i < COMMAND_HOT_COUNT) {
+            m_commandControls[i].actionSendInterval->setIcon(QIcon(QString(":/ico/%1-loop.png").arg(i+1)));
+            m_commandControls[i].actionSendInterval->setShortcut(QKeySequence(QString(defaultShortcutLoopKey).arg((i+1)%10)));
+            m_commandControls[i].actionSendInterval->setToolTip(QString(tr("Циклически отправлять команду №%1 (%2)")).arg(i+1).arg(m_commandControls[i].actionSendInterval->shortcut().toString()));
+            m_ui->toolBarCommandLoop->addAction(m_commandControls[i].actionSendInterval);
+        } else {
+            m_commandControls[i].actionSendInterval->setToolTip(QString(tr("Циклически отправлять команду №%1")).arg(i+1));
+        }
         m_commandControls[i].actionSendInterval->setStatusTip(m_commandControls[i].actionSendInterval->toolTip());
         m_ui->menuLoop->addAction(m_commandControls[i].actionSendInterval);
-        if (i<10) m_ui->toolBarCommandLoop->addAction(m_commandControls[i].actionSendInterval);
         connect(m_commandControls[i].actionSendInterval, &QAction::toggled, this, [=](bool checked) {
             if (checked) {
                 m_commandControls[i].timer->start(m_commandControls[i].spinBoxInterval->value());
@@ -336,17 +389,16 @@ MainWindow::MainWindow(QWidget *parent):
     //
     connect(m_ui->checkBoxCrc, &QCheckBox::toggled, this, [=](bool checked) {
         m_ui->labelCrc->setVisible(checked);
-        for (int i = 0; i < COMMAND_COUNT; ++i) m_commandControls[i].comboBoxCrc->setVisible(checked);
+        for (int i = 0; i < m_commandControls.size(); ++i) m_commandControls[i].comboBoxCrc->setVisible(checked);
     });
     connect(m_ui->checkBoxInterval, &QCheckBox::toggled, this, [=](bool checked) {
         m_ui->labelInterval->setVisible(checked);
         m_ui->labelSendInterval->setVisible(checked);
-        for (int i = 0; i < COMMAND_COUNT; ++i) {
+        for (int i = 0; i < m_commandControls.size(); ++i) {
             m_commandControls[i].spinBoxInterval->setVisible(checked);
             m_commandControls[i].actionButtonSendInterval->setVisible(checked);
         }
     });
-
 
     // Enumeration
     m_ui->groupBoxEnumerateFormat->setStatusTip(m_ui->lineEditEnumerateFormat->toolTip());
@@ -713,7 +765,7 @@ void MainWindow::connected() {
         serialStateUpdate();
     }
     m_ui->actionSendBreak->setEnabled(true);
-    for (int i = 0; i < COMMAND_COUNT; ++i) {
+    for (int i = 0; i < m_commandControls.size(); ++i) {
         m_commandControls[i].actionButtonSend->setEnabled(true);
         m_commandControls[i].actionButtonSendInterval->setEnabled(true);
         m_commandControls[i].actionSend->setEnabled(true);
@@ -747,7 +799,7 @@ void MainWindow::disconnected() {
     m_ui->actionDtr->setEnabled(false);
     m_ui->actionRts->setEnabled(false);
     m_ui->actionSendBreak->setEnabled(false);
-    for (int i = 0; i < COMMAND_COUNT; ++i) {
+    for (int i = 0; i < m_commandControls.size(); ++i) {
         m_commandControls[i].actionSend->setEnabled(false);
         m_commandControls[i].actionSendInterval->setChecked(false);
         m_commandControls[i].actionSendInterval->setEnabled(false);
@@ -783,21 +835,22 @@ void MainWindow::about() {
 
 QByteArray MainWindow::convertData(const QByteArray &data) {
     QByteArray res;
+    if (m_settings.timeStamp) {
+        quint64 ms = QDateTime::currentMSecsSinceEpoch();
+        res.append(QDateTime::fromMSecsSinceEpoch(ms).toString("\n[hh:mm:ss.zzz] - ").toLocal8Bit());
+    }
     for (int i=0; i<data.size(); ++i) {
         char c = data.at(i);
-        if (m_settings.timeStamp) {
-            if (c == 0x0D) {
-                quint64 ms = QDateTime::currentMSecsSinceEpoch();
-                QByteArray ts = QDateTime::fromMSecsSinceEpoch(ms).toString("\n[hh:mm:ss.zzz] - ").toLocal8Bit();
-                res.append(ts);
-                if (!m_settings.hexLog) continue;
-            }
-        }
         if (m_settings.hexLog) {
             if (m_settings.hexAll || (c < ' ')) {
                 res.append(QString("<%1>").arg(QByteArray(1, c).toHex().toUpper()).toLocal8Bit());
             } else {
                 res.append(c);
+            }
+            if (m_settings.linefeed) {
+                if (c == m_settings.linefeedChar) {
+                    res.append('\n');
+                }
             }
         } else {
             res.append(c);
@@ -867,10 +920,15 @@ void MainWindow::showSettings() {
     m_settings.dtr = m_ui->actionDtr->isChecked();
     m_settings.rts = m_ui->actionRts->isChecked();
     DialogSettings ds(m_settings, this);
+    QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
+    settings.beginGroup(strSettings);
+    ds.restoreGeometry(settings.value(strGeometry).toByteArray());
     if (ds.exec() == QDialog::Accepted) {
         m_settings = ds.settings();
+        settings.setValue(strGeometry, ds.saveGeometry());
         open();
     }
+    settings.endGroup();
 }
 
 void MainWindow::selectFont() {
@@ -1009,119 +1067,124 @@ void MainWindow::showWriteError(const QString &message) {
 void MainWindow::readSettings() {
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
 
-    settings.beginGroup("Find");
-    m_find->restoreGeometry(settings.value("Geometry").toByteArray());
-    m_find->setOpacity(settings.value("Opacity", 1.0).toDouble());
+    settings.beginGroup(strFind);
+    m_find->restoreGeometry(settings.value(strGeometry).toByteArray());
+    m_find->setOpacity(settings.value(strOpacity, 1.0).toDouble());
     settings.endGroup();
 
-    settings.beginGroup("Enumerate");
-    m_ui->lineEditEnumerateFormat->setText(settings.value("Format", defaultAddrFormat).toString());
-    m_ui->comboBoxEnumerateType->setCurrentIndex(settings.value("Type", 0).toInt());
-    m_ui->spinBoxEnumerateDigits->setValue(settings.value("Digits", 2).toInt());
-    m_ui->spinBoxEnumerateFrom->setValue(settings.value("From", 0).toInt());
-    m_ui->spinBoxEnumerateTo->setValue(settings.value("To", 99).toInt());
-    m_ui->spinBoxEnumerateInterval->setValue(settings.value("Interval", 50).toInt());
-    m_ui->comboBoxEnumerateCrc->setCurrentIndex(settings.value("Crc", 0).toInt());
+    settings.beginGroup(strEnumerate);
+    m_ui->lineEditEnumerateFormat->setText(settings.value(strFormat, defaultAddrFormat).toString());
+    m_ui->comboBoxEnumerateType->setCurrentIndex(settings.value(strType, 0).toInt());
+    m_ui->spinBoxEnumerateDigits->setValue(settings.value(strDigits, 2).toInt());
+    m_ui->spinBoxEnumerateFrom->setValue(settings.value(strFrom, 0).toInt());
+    m_ui->spinBoxEnumerateTo->setValue(settings.value(strTo, 99).toInt());
+    m_ui->spinBoxEnumerateInterval->setValue(settings.value(strInterval, 50).toInt());
+    m_ui->comboBoxEnumerateCrc->setCurrentIndex(settings.value(strCrc, 0).toInt());
     settings.endGroup();
 
-    settings.beginGroup("Commands");
-    for (int i = 0; i < COMMAND_COUNT; ++i) {
-        m_commandControls[i].lineEditCommand->setText(settings.value(QString("Value%1").arg(i+1), defaultCommand[i]).toString());
-        m_commandControls[i].comboBoxCrc->setCurrentIndex(settings.value(QString("Crc%1").arg(i+1), 0).toInt());
-        m_commandControls[i].spinBoxInterval->setValue(settings.value(QString("Interval%1").arg(i+1), 1000).toInt());
+    settings.beginGroup(strCommands);
+    for (int i = 0; i < m_commandControls.size(); ++i) {
+        m_commandControls[i].lineEditCommand->setText(settings.value(QString(strValueNum).arg(i+1), defaultCommand[i%COMMAND_HOT_COUNT]).toString());
+        m_commandControls[i].comboBoxCrc->setCurrentIndex(settings.value(QString(strCrcNum).arg(i+1), 0).toInt());
+        m_commandControls[i].spinBoxInterval->setValue(settings.value(QString(strIntervalNum).arg(i+1), 1000).toInt());
     }
-    m_ui->checkBoxCrc->setChecked(settings.value("Crc", true).toBool());
+    m_ui->checkBoxCrc->setChecked(settings.value(strCrc, true).toBool());
     m_ui->checkBoxInterval->setChecked(settings.value("Interval", true).toBool());
     settings.endGroup();
 
-    settings.beginGroup("Settings");
-    m_settings.type = static_cast<DialogSettings::ConnectionType>(settings.value("Type", DialogSettings::Serial).toInt());
-    m_settings.timeoutWrite = settings.value("TimeoutWrite", DEFAULT_TIMEOUT_WRITE).toInt();
-    m_settings.name = settings.value("Name", "").toString();
-    m_settings.baudRate = settings.value("Baud", QSerialPort::Baud38400).toInt();
-    m_settings.dataBits = static_cast<QSerialPort::DataBits>(settings.value("DataBits", QSerialPort::Data8).toInt());
-    m_settings.parity = static_cast<QSerialPort::Parity>(settings.value("Parity", QSerialPort::NoParity).toInt());
-    m_settings.stopBits = static_cast<QSerialPort::StopBits>(settings.value("StopBits", QSerialPort::OneStop).toInt());
-    m_settings.flowControl = static_cast<QSerialPort::FlowControl>(settings.value("FlowControl", QSerialPort::NoFlowControl).toInt());
-    m_settings.dtr = settings.value("DTR", false).toBool();
-    m_settings.rts = settings.value("RTS", false).toBool();
-    m_settings.host = settings.value("Host", DEFAULT_HOST).toString();
-    m_settings.port = settings.value("Port", DEFAULT_PORT).toUInt();
-    m_settings.hexLog = settings.value("HexLog", false).toBool();
-    m_settings.hexAll = settings.value("HexAll", false).toBool();
-    m_settings.localEcho = settings.value("LocalEcho", true).toBool();
-    m_settings.timeStamp = settings.value("TimeStamp", false).toBool();
+    settings.beginGroup(strSettings);
+    m_settings.type = static_cast<DialogSettings::ConnectionType>(settings.value(strType, DialogSettings::Serial).toInt());
+    m_settings.timeoutWrite = settings.value(strTimeoutWrite, DEFAULT_TIMEOUT_WRITE).toInt();
+    m_settings.name = settings.value(strName, "").toString();
+    m_settings.baudRate = settings.value(strBaud, QSerialPort::Baud38400).toInt();
+    m_settings.dataBits = static_cast<QSerialPort::DataBits>(settings.value(strDataBits, QSerialPort::Data8).toInt());
+    m_settings.parity = static_cast<QSerialPort::Parity>(settings.value(strParity, QSerialPort::NoParity).toInt());
+    m_settings.stopBits = static_cast<QSerialPort::StopBits>(settings.value(strStopBits, QSerialPort::OneStop).toInt());
+    m_settings.flowControl = static_cast<QSerialPort::FlowControl>(settings.value(strFlowControl, QSerialPort::NoFlowControl).toInt());
+    m_settings.dtr = settings.value(strDtr, false).toBool();
+    m_settings.rts = settings.value(strRts, false).toBool();
+    m_settings.host = settings.value(strHost, DEFAULT_HOST).toString();
+    m_settings.port = settings.value(strPort, DEFAULT_PORT).toUInt();
+    m_settings.hexLog = settings.value(strHexLog, false).toBool();
+    m_settings.hexAll = settings.value(strHexAll, false).toBool();
+    m_settings.linefeed = settings.value(strLinefeed, true).toBool();
+    m_settings.linefeedChar = settings.value(strLinefeedChar, DEFAULT_LINEFEED_CHAR).toUInt();
+    m_settings.localEcho = settings.value(strLocalEcho, true).toBool();
+    m_settings.timeStamp = settings.value(strTimeStamp, false).toBool();
     settings.endGroup();
 
-    settings.beginGroup("Window");
-    restoreGeometry(settings.value("Geometry").toByteArray());
-    restoreState(settings.value("State").toByteArray());
-    QString s = settings.value("Font", m_console->font().toString()).toString();
+    settings.beginGroup(strWindow);
+    restoreGeometry(settings.value(strGeometry).toByteArray());
+    restoreState(settings.value(strState).toByteArray());
+    QString s = settings.value(strFont, m_console->font().toString()).toString();
     QFont f;
     if (f.fromString(s)) m_console->setFont(f);
     settings.endGroup();
 
-    m_dir = settings.value("Directory", false).toString();
+    m_dir = settings.value(strDirectory, false).toString();
 
-    if (settings.value("Connected", false).toBool()) open();
+    if (settings.value(strConnected, false).toBool()) open();
 }
 
 void MainWindow::writeSettings() {
     QSettings settings(QCoreApplication::organizationName(), QCoreApplication::applicationName());
 
-    settings.beginGroup("Window");
-    settings.setValue("Geometry", saveGeometry());
-    settings.setValue("State", saveState());
-    settings.setValue("Font", m_console->font().toString());
+    settings.beginGroup(strWindow);
+    settings.setValue(strGeometry, saveGeometry());
+    settings.setValue(strState, saveState());
+    settings.setValue(strFont, m_console->font().toString());
     settings.endGroup();
 
-    settings.beginGroup("Find");
-    settings.setValue("Geometry", m_find->saveGeometry());
-    settings.setValue("Opacity", m_find->windowOpacity());
+    settings.beginGroup(strFind);
+    settings.setValue(strGeometry, m_find->saveGeometry());
+    settings.setValue(strOpacity, m_find->windowOpacity());
     settings.endGroup();
 
-    settings.beginGroup("Enumerate");
-    settings.setValue("Format", m_ui->lineEditEnumerateFormat->text());
-    settings.setValue("Type", m_ui->comboBoxEnumerateType->currentIndex());
-    settings.setValue("Digits", m_ui->spinBoxEnumerateDigits->value());
-    settings.setValue("From", m_ui->spinBoxEnumerateFrom->value());
-    settings.setValue("To", m_ui->spinBoxEnumerateTo->value());
-    settings.setValue("Interval", m_ui->spinBoxEnumerateInterval->value());
-    settings.setValue("Crc", m_ui->comboBoxEnumerateCrc->currentIndex());
+    settings.beginGroup(strEnumerate);
+    settings.setValue(strFormat, m_ui->lineEditEnumerateFormat->text());
+    settings.setValue(strType, m_ui->comboBoxEnumerateType->currentIndex());
+    settings.setValue(strDigits, m_ui->spinBoxEnumerateDigits->value());
+    settings.setValue(strFrom, m_ui->spinBoxEnumerateFrom->value());
+    settings.setValue(strTo, m_ui->spinBoxEnumerateTo->value());
+    settings.setValue(strInterval, m_ui->spinBoxEnumerateInterval->value());
+    settings.setValue(strCrc, m_ui->comboBoxEnumerateCrc->currentIndex());
     settings.endGroup();
 
-    settings.beginGroup("Commands");
-    for (int i = 0; i < COMMAND_COUNT; ++i) {
-        settings.setValue(QString("Value%1").arg(i+1), m_commandControls[i].lineEditCommand->text());
-        settings.setValue(QString("Crc%1").arg(i+1), m_commandControls[i].comboBoxCrc->currentIndex());
-        settings.setValue(QString("Interval%1").arg(i+1), m_commandControls[i].spinBoxInterval->value());
+    settings.beginGroup(strCommands);
+    settings.setValue(strCount, m_commandControls.size());
+    for (int i = 0; i < m_commandControls.size(); ++i) {
+        settings.setValue(QString(strValueNum).arg(i+1), m_commandControls[i].lineEditCommand->text());
+        settings.setValue(QString(strCrcNum).arg(i+1), m_commandControls[i].comboBoxCrc->currentIndex());
+        settings.setValue(QString(strIntervalNum).arg(i+1), m_commandControls[i].spinBoxInterval->value());
     }
-    settings.setValue("Crc", m_ui->checkBoxCrc->isChecked());
-    settings.setValue("Interval", m_ui->checkBoxInterval->isChecked());
+    settings.setValue(strCrc, m_ui->checkBoxCrc->isChecked());
+    settings.setValue(strInterval, m_ui->checkBoxInterval->isChecked());
     settings.endGroup();
 
-    settings.beginGroup("Settings");
-    settings.setValue("Type", m_settings.type);
-    settings.setValue("TimeoutWrite", m_settings.timeoutWrite);
-    settings.setValue("Name", m_settings.name);
-    settings.setValue("Baud", m_settings.baudRate);
-    settings.setValue("DataBits", m_settings.dataBits);
-    settings.setValue("Parity", m_settings.parity);
-    settings.setValue("StopBits", m_settings.stopBits);
-    settings.setValue("FlowControl", m_settings.flowControl);
-    settings.setValue("DTR", m_settings.dtr);
-    settings.setValue("RTS", m_settings.rts);
-    settings.setValue("Host", m_settings.host);
-    settings.setValue("Port", m_settings.port);
-    settings.setValue("HexLog", m_settings.hexLog);
-    settings.setValue("HexAll", m_settings.hexAll);
-    settings.setValue("LocalEcho", m_settings.localEcho);
-    settings.setValue("TimeStamp", m_settings.timeStamp);
+    settings.beginGroup(strSettings);
+    settings.setValue(strType, m_settings.type);
+    settings.setValue(strTimeoutWrite, m_settings.timeoutWrite);
+    settings.setValue(strName, m_settings.name);
+    settings.setValue(strBaud, m_settings.baudRate);
+    settings.setValue(strDataBits, m_settings.dataBits);
+    settings.setValue(strParity, m_settings.parity);
+    settings.setValue(strStopBits, m_settings.stopBits);
+    settings.setValue(strFlowControl, m_settings.flowControl);
+    settings.setValue(strDtr, m_settings.dtr);
+    settings.setValue(strRts, m_settings.rts);
+    settings.setValue(strHost, m_settings.host);
+    settings.setValue(strPort, m_settings.port);
+    settings.setValue(strHexLog, m_settings.hexLog);
+    settings.setValue(strHexAll, m_settings.hexAll);
+    settings.setValue(strLinefeed, m_settings.linefeed);
+    settings.setValue(strLinefeedChar, m_settings.linefeedChar);
+    settings.setValue(strLocalEcho, m_settings.localEcho);
+    settings.setValue(strTimeStamp, m_settings.timeStamp);
     settings.endGroup();
 
-    settings.setValue("Directory", m_dir);
+    settings.setValue(strDirectory, m_dir);
 
-    settings.setValue("Connected", isOpen());
+    settings.setValue(strConnected, isOpen());
 }
 
 void MainWindow::readSerialSignals() {
